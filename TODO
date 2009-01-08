@@ -1,0 +1,12 @@
+Already written: A Django file storage adapter. Kept closed because it's not
+polished. If there's a huge demand, I'll most likely publish it.
+
+Deleting buckets? Creating buckets? These are both fairly simple to implement,
+but they somehow feel outside of the scope of a simple API.
+
+Perhaps some unittests.
+
+Perhaps a CLI á la FTP.
+
+Some way to stream upload files, using Transfer-Encoding: chunked. This would
+mean skipping urllib2 for that request entirely, as it's simply incompatible.
