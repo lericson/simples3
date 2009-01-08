@@ -1,8 +1,8 @@
-r"""Simple Amazon AWS S3 interface.
+r"""A Simple Amazon AWS S3 interface
 
-And I do mean that.
+And it really is simple.
 
-Paste your stuff here and run this module in itself to do the tests::
+Setup::
 
     >>> s = S3Bucket("mybucket", 
     ...              access_key="ACESSS KEY",
@@ -19,11 +19,6 @@ or if you'd like to use virtual host S3::
     ...              base_url="http://yo.se")
     >>> print s  # doctest: +ELLIPSIS
     <S3Bucket ... at 'http...'>
-
-    >>> s = S3Bucket("s3-dev.yo.se",
-    ...     access_key="0KG1EY709BMR775A1ER2",
-    ...     secret_key="ylE3bXT6Rwj2ko0+fT2P1itzHSiHm7N8Aj4NCm8b",
-    ...     base_url="https://s3-dev.yo.se")
 
 Note that missing slash above, it's important. Think of it as
 "The prefix to which all calls are made." Also the scheme can be `https` or
@@ -46,7 +41,7 @@ Nice and tidy, but what if we want to know more about our fetched file? Easy::
     >>> f.s3_info["modify"]  # doctest: +ELLIPSIS
     datetime.datetime(...)
     >>> f.s3_info["mimetype"]
-    'application/x-octet-stream'
+    'application/octet-stream'
     >>> f.s3_info.keys()
     ['mimetype', 'modify', 'headers', 'date', 'size', 'metadata']
     >>> f.close()
@@ -126,12 +121,12 @@ That about sums it up.
 
 import time
 import hmac
-import md5
-import sha
+import hashlib
 import re
 import urllib
 import urllib2
 import datetime
+import mimetypes
 
 rfc822_fmt = '%a, %d %b %Y %H:%M:%S GMT'
 iso8601_fmt = '%Y-%m-%dT%H:%M:%S.000Z'
@@ -167,7 +162,7 @@ def aws_md5(data):
     >>> aws_md5("Hello!")
     'lS0sVtBIWVgzZ0e83ZhZDQ=='
     """
-    return md5.new(data).digest().encode("base64")[:-1]
+    return hashlib.md5(data).digest().encode("base64")[:-1]
 
 def aws_urlquote(value):
     r"""AWS-style quote a URL part.
@@ -180,6 +175,14 @@ def aws_urlquote(value):
     if isinstance(value, unicode):
         value = value.encode("utf-8")
     return urllib.quote(value, "/")
+
+def guess_mimetype(fn, default="application/octet-stream"):
+    """Guess a mimetype from filename *fn."""
+    if "." not in fn:
+        return default
+    extension = fn.rsplit(".", 1)[1].lower()
+    if extension == "jpg": extension = "jpeg"
+    return mimetypes.guess_type("." + extension)[0] or default
 
 def info_dict(headers):
    return {"size": int(headers["content-length"]),
@@ -249,7 +252,9 @@ class S3Error(Exception):
         self = cls("HTTP error", code=e.code, url=e.filename)
         self.code = e.code
         self.fp = fp = e.fp
-        if fp:
+        # The latter part of this clause is to avoid some weird bug in urllib2
+        # and AWS which has it read as if chunked, and AWS gives empty reply.
+        if fp and dict(fp.info()).get("Content-Length", 0):
             self.data = data = fp.read()
             begin, end = data.find("<Message>"), data.find("</Message>")
             if min(begin, end) >= 0:
@@ -324,7 +329,7 @@ class S3Bucket(object):
 
     def sign_description(self, desc):
         """AWS-style sign data."""
-        hasher = hmac.new(self.secret_key, desc.encode("utf-8"), sha)
+        hasher = hmac.new(self.secret_key, desc.encode("utf-8"), hashlib.sha1)
         return hasher.digest().encode("base64")[:-1]
 
     def make_description(self, method, key=None, data=None,
@@ -374,18 +379,18 @@ class S3Bucket(object):
         return AnyMethodRequest(method, url, data=data, headers=headers)
 
     def open_request(self, request, errors=True):
-        try:
             return self.opener.open(request)
-        except urllib2.HTTPError, e:
-            if errors:
-                raise S3Error.from_urllib(e)
-            else:
-                return e
 
     def make_request(self, method, key=None, args=None, data=None, headers={}):
-        request = self.new_request(method, key=key, args=args,
-                                   data=data, headers=headers)
-        return self.open_request(request)
+        for retry_no in xrange(10):
+            request = self.new_request(method, key=key, args=args,
+                                       data=data, headers=headers)
+            try:
+                return self.open_request(request)
+            except urllib2.HTTPError, e:
+                raise S3Error.from_urllib(e)
+        else:
+            raise RuntimeError("ran out of retries")  # Shouldn't happen.
 
     def get(self, key):
         response = self.make_request("GET", key=key)
@@ -393,19 +398,18 @@ class S3Bucket(object):
         return response
 
     def info(self, key):
-        request = self.new_request("HEAD", key=key)
-        response = self.open_request(request, errors=False)
-        if response.code == 404:
-            raise KeyError(key)
-        elif response.code != 200:
-            raise response  # is an exception
+        try:
+            response = self.make_request("HEAD", key=key)
+        except S3Error, e:
+            if e.code == 404:
+                raise KeyError(key)
+            raise e
         rv = info_dict(dict(response.info()))
         response.close()
         return rv
 
-    def put(self, key, data=None, acl=None, metadata={},
-            mimetype="application/x-octet-stream"):
-        headers = {"Content-Type": mimetype}
+    def put(self, key, data=None, acl=None, metadata={}, mimetype=None):
+        headers = {"Content-Type": mimetype or guess_mimetype(key)}
         headers.update(metadata_headers(metadata))
         headers.update({"Content-Length": str(len(data)),
                         "Content-MD5": aws_md5(data)})
@@ -415,15 +419,19 @@ class S3Bucket(object):
 
     def delete(self, key):
         try:
-            self.make_request("DELETE", key=key).close()
+            resp = self.make_request("DELETE", key=key)
+            resp.close()
+        # Python 2.5: urllib2 raises an exception for 204.
         except S3Error, e:
             if e.code == 204:
                 return True
             elif e.code == 404:
                 raise KeyError(key)
             raise
+        # Python 2.6: urllib2 does the right thing for 204.
         else:
-            raise KeyError(key)
+            if resp.code != 204:
+                raise KeyError(key)
     
     def listdir(self, prefix=None, marker=None, limit=None, delimiter=None):
         """List contents of bucket.

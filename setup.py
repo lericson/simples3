@@ -20,8 +20,11 @@ are as easy as with dictionaries.
 Out of simplicity comes no dependencies - the code relies solely on Python
 standard libraries.
 
-The perhaps greatest setback is that it requires Python 2.5, nothing more,
-nothing less.
+The perhaps greatest setback is that it requires Python 2.5, or Python 2.6. No
+attempt to backport to Python 2.4 will ever be made, because: it's old.
+
+Usage
+-----
 """ + simples3.__doc__
 
 setup(name="simples3", version="0.1",
