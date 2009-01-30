@@ -119,6 +119,10 @@ Boom. What's more? Listing the bucket::
 That about sums it up.
 """
 
+# Temporary ChangeLog.
+# 0.2: Added transformers and cleaned up a bit.
+# 0.1: Initial release.
+
 import time
 import hmac
 import hashlib
@@ -408,13 +412,15 @@ class S3Bucket(object):
         response.close()
         return rv
 
-    def put(self, key, data=None, acl=None, metadata={}, mimetype=None):
-        headers = {"Content-Type": mimetype or guess_mimetype(key)}
+    def put(self, key, data=None, acl=None, metadata={}, mimetype=None,
+            transformer=None):
+        headers = {}
+        headers.update({"Content-Type": mimetype or guess_mimetype(key)})
         headers.update(metadata_headers(metadata))
+        if acl: headers["X-AMZ-ACL"] = acl
+        if transformer: data = transformer(headers, data)
         headers.update({"Content-Length": str(len(data)),
                         "Content-MD5": aws_md5(data)})
-        if acl:
-            headers["X-AMZ-ACL"] = acl
         self.make_request("PUT", key=key, data=data, headers=headers).close()
 
     def delete(self, key):
