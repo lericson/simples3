@@ -120,7 +120,7 @@ That about sums it up.
 """
 
 # Temporary ChangeLog.
-# 0.2: Added transformers and cleaned up a bit.
+# 0.2: Added transformers.
 # 0.1: Initial release.
 
 import time

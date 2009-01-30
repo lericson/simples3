@@ -27,7 +27,7 @@ Usage
 -----
 """ + simples3.__doc__
 
-setup(name="simples3", version="0.1",
+setup(name="simples3", version="0.2",
       url="http://lericson.se/",
       author="Ludvig Ericson", author_email="ludvig@lericson.se",
       description="Simple, quick Amazon AWS S3 interface",
