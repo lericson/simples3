@@ -5,7 +5,7 @@ And it really is simple.
 Setup::
 
     >>> s = S3Bucket("mybucket", 
-    ...              access_key="ACESSS KEY",
+    ...              access_key="ACCESS KEY",
     ...              secret_key="SECRET KEY")
     ... 
     >>> print s  # doctest: +ELLIPSIS
