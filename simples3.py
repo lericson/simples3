@@ -438,11 +438,11 @@ class S3Bucket(object):
         else:
             if resp.code != 204:
                 raise KeyError(key)
-    
+
     def listdir(self, prefix=None, marker=None, limit=None, delimiter=None):
         """List contents of bucket.
 
-        *prefix*, if given, predicats `key.startswith(prefix)`.
+        *prefix*, if given, predicates `key.startswith(prefix)`.
         *marker*, if given, predicates `key > marker`, lexicographically.
         *limit*, if given, predicates `len(keys) <= limit`.
         """
