@@ -473,10 +473,39 @@ class S3Bucket(object):
             if not data:
                 break
 
+    def url_for(self, key):
+        """
+        Produces the URL for given S3 object key.
+
+        *key* specifies the S3 object path relative to the
+              base URL of the bucket.
+
+        >>> S3Bucket('bottle').url_for('the dregs')
+        'https://s3.amazonaws.com/bottle/the%20dregs'
+        """
+        return '%(base)s/%(key)s' % dict(
+            base=self.base_url,
+            key=aws_urlquote(key)
+        )
+
 if __name__ == "__main__":
     import unittest
     import doctest
     import sys
+
+    class S3BucketTests(unittest.TestCase):
+        def setUp(self):
+            # Use the same fake S3 credentials as in S3 Developer Guide.
+            self.bucket = S3Bucket('johnsmith',
+                access_key='0PN5J17HBGZHT7JJ3X82',
+                secret_key='uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o',
+                base_url='http://johnsmith.s3.amazonaws.com')
+        def test_url_for(self):
+            self.assertEquals('http://johnsmith.s3.amazonaws.com/file.txt',
+                self.bucket.url_for('file.txt'))
+            self.assertEquals('http://johnsmith.s3.amazonaws.com/my%20key',
+                self.bucket.url_for('my key'))
+
     module = __import__(__name__)
     suite = unittest.TestLoader().loadTestsFromModule(module)
     suite.addTest(doctest.DocTestSuite(module))
