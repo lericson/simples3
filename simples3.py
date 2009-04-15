@@ -474,5 +474,11 @@ class S3Bucket(object):
                 break
 
 if __name__ == "__main__":
+    import unittest
     import doctest
-    doctest.testmod()
+    import sys
+    module = __import__(__name__)
+    suite = unittest.TestLoader().loadTestsFromModule(module)
+    suite.addTest(doctest.DocTestSuite(module))
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    sys.exit(not result.wasSuccessful())
