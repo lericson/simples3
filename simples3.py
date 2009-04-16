@@ -231,11 +231,11 @@ def name(o):
 
 class S3Error(Exception):
     def __init__(self, message, **kwds):
-        self.message = message
+        self.msg = message
         self.extra = kwds.copy()
 
     def __str__(self):
-        rv = self.message
+        rv = self.msg
         if self.extra:
             key_it = iter(self.extra)
             rv += " ("
@@ -263,9 +263,9 @@ class S3Error(Exception):
             begin, end = data.find("<Message>"), data.find("</Message>")
             if min(begin, end) >= 0:
                 self.full_message = msg = data[begin + 9:end]
-                self.message = msg[:50]
-                if self.message != msg:
-                    self.message += "..."
+                self.msg = msg[:50]
+                if self.msg != msg:
+                    self.msg += "..."
         return self
 
 class StreamHTTPHandler(urllib2.HTTPHandler):
