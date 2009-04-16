@@ -339,13 +339,8 @@ class S3Bucket(object):
     def make_description(self, method, key=None, data=None,
                          headers={}, subresource=None, bucket=None):
         # The signature descriptor is detalied in the developer's PDF on p. 65.
-        # Calculate canonicalized resource.
-        res = "/"
-        if bucket or bucket is None:
-            res += aws_urlquote(bucket or self.name)
-        res += "/"
-        if key:
-            res += aws_urlquote(key)
+        res = self.canonicalized_resource(key, bucket=bucket)
+        # Append subresource, if any.
         if subresource:
             res += "?" + subresource
         # Make description. :/
@@ -353,14 +348,35 @@ class S3Bucket(object):
             headers.get("Content-Type", ""), headers.get("Date", ""))) + "\n" +\
             _amz_canonicalize(headers) + res
 
+    def canonicalized_resource(self, key, bucket=None):
+        res = "/"
+        if bucket or bucket is None:
+            res += aws_urlquote(bucket or self.name)
+        res += "/"
+        if key:
+            res += aws_urlquote(key)
+        return res
+
     def get_request_signature(self, method, key=None, data=None,
                               headers={}, subresource=None, bucket=None):
         return self.sign_description(self.make_description(method, key=key,
             data=data, headers=headers, subresource=subresource, bucket=bucket))
 
     def new_request(self, method, key=None, args=None, data=None, headers={}):
-        url = self.base_url + "/"
         headers = headers.copy()
+        if data and "Content-MD5" not in headers:
+            headers["Content-MD5"] = aws_md5(data)
+        if "Date" not in headers:
+            headers["Date"] = time.strftime(rfc822_fmt, time.gmtime())
+        if "Authorization" not in headers:
+            sign = self.get_request_signature(method, key=key, data=data,
+                                              headers=headers)
+            headers["Authorization"] = "AWS %s:%s" % (self.access_key, sign)
+        url = self.make_url(key, args)
+        return AnyMethodRequest(method, url, data=data, headers=headers)
+
+    def make_url(self, key, args, arg_sep=";"):
+        url = self.base_url + "/"
         if key:
             url += aws_urlquote(key)
         if args:
@@ -370,17 +386,9 @@ class S3Bucket(object):
                 args_items = args.items()
             else:
                 args_items = args
-            url += "?" + ";".join("=".join(map(urllib.quote_plus, item))
-                                  for item in args_items)
-        if data and "Content-MD5" not in headers:
-            headers["Content-MD5"] = aws_md5(data)
-        if "Date" not in headers:
-            headers["Date"] = time.strftime(rfc822_fmt, time.gmtime())
-        if "Authorization" not in headers:
-            sign = self.get_request_signature(method, key=key, data=data,
-                                              headers=headers)
-            headers["Authorization"] = "AWS %s:%s" % (self.access_key, sign)
-        return AnyMethodRequest(method, url, data=data, headers=headers)
+            url += "?" + arg_sep.join("=".join(map(urllib.quote_plus, item))
+                                      for item in args_items)
+        return url
 
     def open_request(self, request, errors=True):
             return self.opener.open(request)
@@ -473,20 +481,53 @@ class S3Bucket(object):
             if not data:
                 break
 
-    def url_for(self, key):
+    def url_for(self, key, authenticated=False, expires=None,
+            method='GET', content_md5='', mimetype='',
+            headers={}):
         """
         Produces the URL for given S3 object key.
 
         *key* specifies the S3 object path relative to the
-              base URL of the bucket.
+            base URL of the bucket.
+        *authenticated* asks for URL query string authentication
+            to be used; such URLs include a signature and expiration
+            time, and may be used by HTTP client apps to gain
+            temporary access to private S3 objects.
+        *expires* indicates when the produced URL ceases to function,
+            in seconds from Jan 1, 1970 UTC; if omitted, the URL
+            will expire in 5 minutes from now.
 
+        TODO: implement expires_in parameter that takes a
+            number of seconds from now or a positive timedelta object.
+
+        URL for a publicly accessible S3 object:
         >>> S3Bucket('bottle').url_for('the dregs')
         'https://s3.amazonaws.com/bottle/the%20dregs'
+
+        Query string authenitcated URL example (fake S3 credentials are shown):
+        >>> b = S3Bucket('johnsmith', access_key='0PN5J17HBGZHT7JJ3X82',
+        ...     secret_key='uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o')
+        >>> b.url_for('foo.js', authenticated=True) # doctest: +ELLIPSIS
+        'https://s3.amazonaws.com/johnsmith/foo.js?AWSAccessKeyId=...&Expires=...&Signature=...'
         """
-        return '%(base)s/%(key)s' % dict(
-            base=self.base_url,
-            key=aws_urlquote(key)
-        )
+        args = tuple()
+        if authenticated:
+            expires = time.time() + 5 * 60 if expires is None else expires
+            expires = str(long(expires))
+            auth_descriptor = ''.join((
+                method, '\n',
+                content_md5, '\n',
+                mimetype, '\n',
+                expires, '\n',
+                _amz_canonicalize(headers), # No '\n' by design!
+                self.canonicalized_resource(key) # No '\n' by design!
+            ))
+            args = (
+                ('AWSAccessKeyId', self.access_key),
+                ('Expires', expires),
+                ('Signature', self.sign_description(auth_descriptor))
+            )
+        return self.make_url(key, args, '&')
 
 if __name__ == "__main__":
     import unittest
@@ -505,6 +546,23 @@ if __name__ == "__main__":
                 self.bucket.url_for('file.txt'))
             self.assertEquals('http://johnsmith.s3.amazonaws.com/my%20key',
                 self.bucket.url_for('my key'))
+        def test_url_for_with_auth(self):
+            # The expected query string is from S3 Developer Guide
+            # "Example Query String Request Authentication" section.
+            self.assertEquals("""http://johnsmith.s3.amazonaws.com/photos/puppy.jpg\
+?AWSAccessKeyId=0PN5J17HBGZHT7JJ3X82&Expires=1175139620&Signature=rucSbH0yNEcP9oM2XNlouVI3BH4%3D""",
+                self.bucket.url_for('photos/puppy.jpg', authenticated=True, expires=1175139620))
+        def test_url_for_with_auth_default_expires(self):
+            # Poor man's dynamic scoping is used to
+            # stub out time.time() function.
+            _real_time_func = time.time
+            time.time = lambda: 1239800000.01234
+            try:
+                # Note: expected expiration value is 300 seconds (5 min) greater.
+                self.failUnless('Expires=1239800300' in
+                    self.bucket.url_for('file.txt', authenticated=True))
+            finally:
+                time.time = _real_time_func
 
     module = __import__(__name__)
     suite = unittest.TestLoader().loadTestsFromModule(module)
