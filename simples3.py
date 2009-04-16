@@ -72,10 +72,10 @@ If you just want to know about a key, ask and ye shall receive::
 
     >>> from pprint import pprint
     >>> s["This is a testfile."] = S3File("Hi!", metadata={"hairdo": "Secret"})
-    >>> pprint(s.info("test"))  # doctest: +ELLIPSIS
+    >>> pprint(s.info("This is a testfile."))  # doctest: +ELLIPSIS
     {'date': datetime.datetime(...),
      'headers': {'content-length': '3',
-                 'content-type': 'application/x-octet-stream',
+                 'content-type': 'application/octet-stream',
                  'date': '...',
                  'etag': '"..."',
                  'last-modified': '...',
@@ -84,7 +84,7 @@ If you just want to know about a key, ask and ye shall receive::
                  'x-amz-meta-hairdo': 'Secret',
                  'x-amz-request-id': '...'},
      'metadata': {'hairdo': 'Secret'},
-     'mimetype': 'application/x-octet-stream',
+     'mimetype': 'application/octet-stream',
      'modify': datetime.datetime(...),
      'size': 3}
 
