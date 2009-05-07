@@ -496,9 +496,7 @@ class S3Bucket(object):
             if not data:
                 break
 
-    def url_for(self, key, authenticated=False, expires=None,
-            method='GET', content_md5='', mimetype='',
-            headers={}):
+    def url_for(self, key, authenticated=False, expires=None):
         """
         Produces the URL for given S3 object key.
 
@@ -530,11 +528,10 @@ class S3Bucket(object):
             expires = time.time() + 5 * 60 if expires is None else expires
             expires = str(long(expires))
             auth_descriptor = ''.join((
-                method, '\n',
-                content_md5, '\n',
-                mimetype, '\n',
+                'GET\n',
+                '\n',
+                '\n',
                 expires, '\n',
-                _amz_canonicalize(headers), # No '\n' by design!
                 self.canonicalized_resource(key) # No '\n' by design!
             ))
             args = (
