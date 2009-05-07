@@ -507,7 +507,7 @@ class S3Bucket(object):
             time, and may be used by HTTP client apps to gain
             temporary access to private S3 objects.
         *expires* indicates when the produced URL ceases to function,
-            in seconds from Jan 1, 1970 UTC; if omitted, the URL
+            in seconds from 1970-01-01T00:00:00 UTC; if omitted, the URL
             will expire in 5 minutes from now.
 
         TODO: implement expires_in parameter that takes a
