@@ -127,6 +127,7 @@ import time
 import hmac
 import hashlib
 import re
+import httplib
 import urllib
 import urllib2
 import datetime
@@ -245,8 +246,8 @@ def name(o):
 
 class S3Error(Exception):
     def __init__(self, message, **kwds):
-        self.msg = message
-        self.extra = kwds.copy()
+        self.args = message, kwds.copy()
+        self.msg, self.extra = self.args
 
     def __str__(self):
         rv = self.msg
@@ -266,13 +267,17 @@ class S3Error(Exception):
             return self
         # The latter part of this clause is to avoid some weird bug in urllib2
         # and AWS which has it read as if chunked, and AWS gives empty reply.
-        self.data = data = fp.read()
-        begin, end = data.find("<Message>"), data.find("</Message>")
-        if min(begin, end) >= 0:
-            self.full_message = msg = data[begin + 9:end]
-            self.msg = msg[:100]
-            if self.msg != msg:
-                self.msg += "..."
+        try:
+            self.data = data = fp.read()
+        except (httplib.HTTPException, urllib2.URLError), e:
+            self.extra["read_error"] = e
+        else:
+            begin, end = data.find("<Message>"), data.find("</Message>")
+            if min(begin, end) >= 0:
+                self.full_message = msg = data[begin + 9:end]
+                self.msg = msg[:100]
+                if self.msg != msg:
+                    self.msg += "..."
         return self
 
 class StreamHTTPHandler(urllib2.HTTPHandler):
