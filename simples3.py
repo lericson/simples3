@@ -208,14 +208,14 @@ def name(o):
 
     Classes:
     >>> name(Exception)
-    'Exception'
+    'exceptions.Exception'
     >>> class MyKlass(object): pass
     >>> name(MyKlass)
     'MyKlass'
 
     Instances:
     >>> name(Exception()), name(MyKlass())
-    ('Exception', 'MyKlass')
+    ('exceptions.Exception', 'MyKlass')
 
     Types:
     >>> name(str), name(object), name(int)
@@ -225,9 +225,23 @@ def name(o):
     >>> name("Hello"), name(True), name(None), name(Ellipsis)
     ('str', 'bool', 'NoneType', 'ellipsis')
     """
-    if hasattr(o, "__name__"): return o.__name__
-    for o in getattr(o, "__mro__", o.__class__.__mro__):
-        return name(o)
+    if hasattr(o, "__name__"):
+        rv = o.__name__
+        modname = getattr(o, "__module__", None)
+        # This work-around because Python does it itself,
+        # see typeobject.c, type_repr.
+        # Note that Python only checks for __builtin__.
+        if modname and modname[:2] + modname[-2:] != "____":
+            rv = o.__module__ + "." + rv
+    else:
+        for o in getattr(o, "__mro__", o.__class__.__mro__):
+            rv = name(o)
+            # If there is no name for the this baseclass, this ensures we check
+            # the next rather than say the object has no name (i.e., return
+            # None)
+            if rv is not None:
+                break
+    return rv
 
 class S3Error(Exception):
     def __init__(self, message, **kwds):
@@ -237,16 +251,8 @@ class S3Error(Exception):
     def __str__(self):
         rv = self.msg
         if self.extra:
-            key_it = iter(self.extra)
             rv += " ("
-            prep = ""
-            while len(rv) < 79:
-                try:
-                    key = key_it.next()
-                except StopIteration:
-                    break
-                rv += prep + key + "=" + repr(self.extra[key])
-                prep = ", "
+            rv += ", ".join("%s=%r" % i for i in self.extra.items())
             rv += ")"
         return rv
 
@@ -256,16 +262,17 @@ class S3Error(Exception):
         self = cls("HTTP error", code=e.code, url=e.filename)
         self.code = e.code
         self.fp = fp = e.fp
+        if not fp:
+            return self
         # The latter part of this clause is to avoid some weird bug in urllib2
         # and AWS which has it read as if chunked, and AWS gives empty reply.
-        if fp and dict(fp.info()).get("Content-Length", 0):
-            self.data = data = fp.read()
-            begin, end = data.find("<Message>"), data.find("</Message>")
-            if min(begin, end) >= 0:
-                self.full_message = msg = data[begin + 9:end]
-                self.msg = msg[:50]
-                if self.msg != msg:
-                    self.msg += "..."
+        self.data = data = fp.read()
+        begin, end = data.find("<Message>"), data.find("</Message>")
+        if min(begin, end) >= 0:
+            self.full_message = msg = data[begin + 9:end]
+            self.msg = msg[:100]
+            if self.msg != msg:
+                self.msg += "..."
         return self
 
 class StreamHTTPHandler(urllib2.HTTPHandler):
