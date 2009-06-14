@@ -18,3 +18,9 @@ standard libraries.
 
 The perhaps greatest setback is that it requires Python 2.5, or Python 2.6. No
 attempt to backport to Python 2.4 will ever be made, because: it's old.
+
+== Changes in simples3 0.3 ==
+
+ * Add a `url_for` method on buckets which lets you use expiring URLs. Thanks to Pavel Repin.
+ * Much better test coverage.
+ * simples3 now works on Python 2.6's mimetypes module.
