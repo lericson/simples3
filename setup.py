@@ -2,9 +2,14 @@
 
 from distutils.core import setup
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(__file__))
 import simples3
+intro = open("README", "U").read()
 usage = "\nUsage\n-----\n\n" + simples3.__doc__
-long_description = open("README", "U").read() + usage
+changes = open("changes.rst", "U").read()
+long_description = intro + usage + "\n" + changes
 
 setup(name="simples3", version="0.3",
       url="http://lericson.se/",
