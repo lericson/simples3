@@ -181,12 +181,12 @@ def aws_urlquote(value):
     return urllib.quote(value, "/")
 
 def guess_mimetype(fn, default="application/octet-stream"):
-    """Guess a mimetype from filename *fn."""
+    """Guess a mimetype from filename *fn*."""
     if "." not in fn:
         return default
-    extension = fn.rsplit(".", 1)[1].lower()
-    if extension == "jpg": extension = "jpeg"
-    return mimetypes.guess_type("." + extension)[0] or default
+    bfn, ext = fn.lower().rsplit(".", 1)
+    if ext == "jpg": ext = "jpeg"
+    return mimetypes.guess_type(bfn + "." + ext)[0] or default
 
 def info_dict(headers):
    return {"size": int(headers["content-length"]),
