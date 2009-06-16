@@ -11,8 +11,8 @@ usage = "\nUsage\n-----\n\n" + simples3.__doc__
 changes = open("changes.rst", "U").read()
 long_description = intro + usage + "\n" + changes
 
-setup(name="simples3", version="0.3-r2",
-      url="http://lericson.se/",
+setup(name="simples3", version=simples3.__version__,
+      url="http://lericson.blogg.se/code/",
       author="Ludvig Ericson", author_email="ludvig@lericson.se",
       description="Simple, quick Amazon AWS S3 interface",
       long_description=long_description,
