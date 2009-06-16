@@ -136,6 +136,8 @@ import mimetypes
 rfc822_fmt = '%a, %d %b %Y %H:%M:%S GMT'
 iso8601_fmt = '%Y-%m-%dT%H:%M:%S.000Z'
 
+__all__ = "S3File", "S3Bucket", "S3Error"
+
 def _amz_canonicalize(headers):
     r"""Canonicalize AMZ headers in that certain AWS way.
 
