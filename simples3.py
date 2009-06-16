@@ -446,20 +446,19 @@ class S3Bucket(object):
         self.make_request("PUT", key=key, data=data, headers=headers).close()
 
     def delete(self, key):
+        # In <=py25, urllib2 raises an exception for HTTP 204, and later
+        # does not, so treat errors and non-errors as equals.
         try:
             resp = self.make_request("DELETE", key=key)
-            resp.close()
-        # Python 2.5: urllib2 raises an exception for 204.
         except S3Error, e:
-            if e.code == 204:
-                return True
-            elif e.code == 404:
-                raise KeyError(key)
-            raise
-        # Python 2.6: urllib2 does the right thing for 204.
+            resp = e
+        resp.close()
+        if 200 <= resp.code < 300:
+            return True
+        elif resp.code == 404:
+            raise KeyError(key)
         else:
-            if resp.code != 204:
-                raise KeyError(key)
+            raise S3Error.from_urllib(resp)
 
     def listdir(self, prefix=None, marker=None, limit=None, delimiter=None):
         """List contents of bucket.
