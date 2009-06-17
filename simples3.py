@@ -194,12 +194,16 @@ def guess_mimetype(fn, default="application/octet-stream"):
     return mimetypes.guess_type(bfn + "." + ext)[0] or default
 
 def info_dict(headers):
-   return {"size": int(headers["content-length"]),
-           "mimetype": headers.get("content-type"),
-           "date": _rfc822_dt(headers["date"]),
-           "modify": _rfc822_dt(headers["last-modified"]),
-           "headers": headers,
-           "metadata": headers_metadata(headers)}
+    rv = {"headers": headers, "metadata": headers_metadata(headers)}
+    if "content-length" in headers:
+        rv["size"] = int(headers["content-length"])
+    if "content-type" in headers:
+        rv["mimetype"] = headers["content-type"]
+    if "date" in headers:
+        rv["date"] = _rfc822_dt(headers["date"]),
+    if "last-modified" in headers:
+        rv["modify"] = _rfc822_dt(headers["last-modified"])
+    return rv
 
 def name(o):
     """Find the name of *o*.
@@ -538,3 +542,14 @@ class S3Bucket(object):
             return self.make_url(key, args, "&")
         else:
             return self.make_url(key)
+
+    def put_bucket(self, acl=None):
+        headers = {"Content-Length": "0"}
+        if acl:
+            headers["X-AMZ-ACL"] = acl
+        resp = self.make_request("PUT", key=None, headers=headers)
+        resp.close()
+        return resp.code == 200
+
+    def delete_bucket(self):
+        return self.delete(None)
