@@ -510,33 +510,31 @@ class S3Bucket(object):
             in seconds from 1970-01-01T00:00:00 UTC; if omitted, the URL
             will expire in 5 minutes from now.
 
-        TODO: implement expires_in parameter that takes a
-            number of seconds from now or a positive timedelta object.
-
         URL for a publicly accessible S3 object:
-        >>> S3Bucket('bottle').url_for('the dregs')
+        >>> S3Bucket("bottle").url_for("the dregs")
         'https://s3.amazonaws.com/bottle/the%20dregs'
 
         Query string authenitcated URL example (fake S3 credentials are shown):
-        >>> b = S3Bucket('johnsmith', access_key='0PN5J17HBGZHT7JJ3X82',
-        ...     secret_key='uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o')
-        >>> b.url_for('foo.js', authenticated=True) # doctest: +ELLIPSIS
+        >>> b = S3Bucket("johnsmith", access_key="0PN5J17HBGZHT7JJ3X82",
+        ...     secret_key="uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o")
+        >>> b.url_for("foo.js", authenticated=True) # doctest: +ELLIPSIS
         'https://s3.amazonaws.com/johnsmith/foo.js?AWSAccessKeyId=...&Expires=...&Signature=...'
         """
-        args = tuple()
+        # TODO Implement expires_in parameter that takes a number of seconds
+        #      from now or a positive timedelta object.
         if authenticated:
-            expires = time.time() + 5 * 60 if expires is None else expires
+            expires = (time.time() + 5 * 60) if expires is None else expires
             expires = str(long(expires))
-            auth_descriptor = ''.join((
-                'GET\n',
-                '\n',
-                '\n',
-                expires, '\n',
-                self.canonicalized_resource(key) # No '\n' by design!
+            auth_descriptor = "".join((
+                "GET\n",
+                "\n",
+                "\n",
+                expires, "\n",
+                self.canonicalized_resource(key)  # No "\n" by design!
             ))
-            args = (
-                ('AWSAccessKeyId', self.access_key),
-                ('Expires', expires),
-                ('Signature', self.sign_description(auth_descriptor))
-            )
-        return self.make_url(key, args, '&')
+            args = (("AWSAccessKeyId", self.access_key),
+                    ("Expires", expires),
+                    ("Signature", self.sign_description(auth_descriptor)))
+            return self.make_url(key, args, "&")
+        else:
+            return self.make_url(key)
