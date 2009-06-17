@@ -395,7 +395,7 @@ class S3Bucket(object):
         url = self.make_url(key, args)
         return AnyMethodRequest(method, url, data=data, headers=headers)
 
-    def make_url(self, key, args, arg_sep=";"):
+    def make_url(self, key, args=None, arg_sep=";"):
         url = self.base_url + "/"
         if key:
             url += aws_urlquote(key)
@@ -500,9 +500,9 @@ class S3Bucket(object):
             if not data:
                 break
 
-    def url_for(self, key, authenticated=False, expires=None):
-        """
-        Produces the URL for given S3 object key.
+    def url_for(self, key, authenticated=False,
+                expire=datetime.timedelta(minutes=5)):
+        """Produces the URL for given S3 object key.
 
         *key* specifies the S3 object path relative to the
             base URL of the bucket.
@@ -510,7 +510,7 @@ class S3Bucket(object):
             to be used; such URLs include a signature and expiration
             time, and may be used by HTTP client apps to gain
             temporary access to private S3 objects.
-        *expires* indicates when the produced URL ceases to function,
+        *expire* indicates when the produced URL ceases to function,
             in seconds from 1970-01-01T00:00:00 UTC; if omitted, the URL
             will expire in 5 minutes from now.
 
@@ -524,20 +524,24 @@ class S3Bucket(object):
         >>> b.url_for("foo.js", authenticated=True) # doctest: +ELLIPSIS
         'https://s3.amazonaws.com/johnsmith/foo.js?AWSAccessKeyId=...&Expires=...&Signature=...'
         """
-        # TODO Implement expires_in parameter that takes a number of seconds
-        #      from now or a positive timedelta object.
         if authenticated:
-            expires = (time.time() + 5 * 60) if expires is None else expires
-            expires = str(long(expires))
+            if not hasattr(expire, "timetuple"):
+                # XXX isinstance, but who uses UNIX timestamps?
+                if isinstance(expire, (int, long)):
+                    expire = datetime.datetime.fromtimestamp(expire)
+                else:
+                    # Assume timedelta.
+                    expire = datetime.datetime.now() + expire
+            expire_desc = str(long(time.mktime(expire.timetuple())))
             auth_descriptor = "".join((
                 "GET\n",
                 "\n",
                 "\n",
-                expires, "\n",
+                expire_desc + "\n",
                 self.canonicalized_resource(key)  # No "\n" by design!
             ))
             args = (("AWSAccessKeyId", self.access_key),
-                    ("Expires", expires),
+                    ("Expires", expire_desc),
                     ("Signature", self.sign_description(auth_descriptor)))
             return self.make_url(key, args, "&")
         else:
