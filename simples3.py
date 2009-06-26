@@ -553,11 +553,15 @@ class S3Bucket(object):
         else:
             return self.make_url(key)
 
-    def put_bucket(self, acl=None):
-        headers = {"Content-Length": "0"}
+    def put_bucket(self, config_xml=None, acl=None):
+        if config_xml:
+            headers = {"Content-Length": len(config_xml),
+                       "Content-Type": "text/xml"}
+        else:
+            headers = {"Content-Length": "0"}
         if acl:
             headers["X-AMZ-ACL"] = acl
-        resp = self.make_request("PUT", key=None, headers=headers)
+        resp = self.make_request("PUT", key=None, data=config_xml, headers=headers)
         resp.close()
         return resp.code == 200
 
