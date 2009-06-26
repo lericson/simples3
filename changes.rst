@@ -3,6 +3,7 @@ Changes in simples3 0.4
 
  * Minor fixes, released as 0.4 mostly because the previous version naming
    scheme was a bad idea.
+ * 0.4.1: Made the put method retry on HTTP 500.
 
 Changes in simples3 0.3
 -----------------------

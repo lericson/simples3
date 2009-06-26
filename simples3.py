@@ -419,7 +419,10 @@ class S3Bucket(object):
                                        data=data, headers=headers)
             try:
                 return self.open_request(request)
-            except urllib2.HTTPError, e:
+            except (urllib2.HTTPError, urllib2.URLError), e:
+                # If S3 gives HTTP 500, we should try again.
+                if getattr(e, "code", None) == 500:
+                    continue
                 raise S3Error.from_urllib(e)
         else:
             raise RuntimeError("ran out of retries")  # Shouldn't happen.
