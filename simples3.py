@@ -268,11 +268,14 @@ class S3Error(Exception):
     @classmethod
     def from_urllib(cls, e):
         """Try to read the real error from AWS."""
-        self = cls("HTTP error", code=e.code, url=e.filename)
-        self.code = e.code
-        self.fp = fp = e.fp
+        self = cls("HTTP error")
+        for attr in "reason", "code", "filename":
+            if hasattr(e, attr):
+                self.extra[attr] = getattr(e, attr)
+        fp = getattr(e, "fp", None)
         if not fp:
             return self
+        self.fp = fp
         # The latter part of this clause is to avoid some weird bug in urllib2
         # and AWS which has it read as if chunked, and AWS gives empty reply.
         try:
