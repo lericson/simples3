@@ -291,6 +291,9 @@ class S3Error(Exception):
                     self.msg += "..."
         return self
 
+    @property
+    def code(self): return self.extra.get("code")
+
 class StreamHTTPHandler(urllib2.HTTPHandler):
     pass
 
