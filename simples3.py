@@ -145,6 +145,9 @@ def _amz_canonicalize(headers):
 
     >>> _amz_canonicalize({"x-amz-test": "test"})
     'x-amz-test:test\n'
+    >>> _amz_canonicalize({"x-amz-first": "test",
+    ...                    "x-amz-second": "hello"})
+    'x-amz-first:test\nx-amz-second:hello\n'
     >>> _amz_canonicalize({})
     ''
     """
@@ -153,7 +156,10 @@ def _amz_canonicalize(headers):
         header = header.lower()
         if header.startswith("x-amz-"):
             rv.setdefault(header, []).append(value)
-    return "".join(":".join((h, ",".join(v))) + "\n" for h, v in rv.iteritems())
+    parts = []
+    for key in sorted(rv):
+        parts.append("%s:%s\n" % (key, ",".join(rv[key])))
+    return "".join(parts)
 
 def metadata_headers(metadata):
     return dict(("X-AMZ-Meta-" + h, v) for h, v in metadata.iteritems())
