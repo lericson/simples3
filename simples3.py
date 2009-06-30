@@ -481,6 +481,25 @@ class S3Bucket(object):
         else:
             raise S3Error.from_urllib(resp)
 
+    # TODO Expose the conditional headers, x-amz-copy-source-if-*
+    def copy(self, source, key, acl=None, metadata=None, headers={}):
+        """Copy S3 file *source* on format '<bucket>/<key>' to *key*.
+
+        If metadata is not None, replaces the metadata with given metadata,
+        otherwise copies the previous metadata.
+
+        Note that *acl* is not copied, but set to *private* by S3 if not given.
+        """
+        headers = headers.copy()
+        headers["X-AMZ-Copy-Source"] = source
+        if acl: headers["X-AMZ-ACL"] = acl
+        if metadata is not None:
+            headers["X-AMZ-Metadata-Directive"] = "REPLACE"
+            headers.update(metadata_headers(metadata))
+        else:
+            headers["X-AMZ-Metadata-Directive"] = "COPY"
+        self.make_request("PUT", key=key, headers=headers).close()
+
     def listdir(self, prefix=None, marker=None, limit=None, delimiter=None):
         """List contents of bucket.
 
