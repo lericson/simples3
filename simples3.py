@@ -456,8 +456,8 @@ class S3Bucket(object):
         return rv
 
     def put(self, key, data=None, acl=None, metadata={}, mimetype=None,
-            transformer=None):
-        headers = {}
+            transformer=None, headers={}):
+        headers = headers.copy()
         headers.update({"Content-Type": mimetype or guess_mimetype(key)})
         headers.update(metadata_headers(metadata))
         if acl: headers["X-AMZ-ACL"] = acl
