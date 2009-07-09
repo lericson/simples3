@@ -482,7 +482,9 @@ class S3Bucket(object):
             raise S3Error.from_urllib(resp)
 
     # TODO Expose the conditional headers, x-amz-copy-source-if-*
-    def copy(self, source, key, acl=None, metadata=None, headers={}):
+    # TODO Add module-level documentation and doctests.
+    def copy(self, source, key, acl=None, metadata=None,
+             mimetype=None, headers={}):
         """Copy S3 file *source* on format '<bucket>/<key>' to *key*.
 
         If metadata is not None, replaces the metadata with given metadata,
@@ -491,6 +493,7 @@ class S3Bucket(object):
         Note that *acl* is not copied, but set to *private* by S3 if not given.
         """
         headers = headers.copy()
+        headers.update({"Content-Type": mimetype or guess_mimetype(key)})
         headers["X-AMZ-Copy-Source"] = source
         if acl: headers["X-AMZ-ACL"] = acl
         if metadata is not None:
@@ -536,7 +539,7 @@ class S3Bucket(object):
 
     def url_for(self, key, authenticated=False,
                 expire=datetime.timedelta(minutes=5)):
-        """Produces the URL for given S3 object key.
+        """Produce the URL for given S3 object key.
 
         *key* specifies the S3 object path relative to the
             base URL of the bucket.
