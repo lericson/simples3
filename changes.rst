@@ -1,3 +1,8 @@
+Changes in simples3 0.5
+-----------------------
+
+ * Add S3-to-S3 copy method.
+
 Changes in simples3 0.4
 -----------------------
 
@@ -5,7 +10,6 @@ Changes in simples3 0.4
    scheme was a bad idea.
  * 0.4.1: Made the put method retry on HTTP 500.
  * 0.4.1: Fix a critical error in signature generation when metadata is given.
- * 0.4.1: Add S3-to-S3 copy method.
 
 Changes in simples3 0.3
 -----------------------
