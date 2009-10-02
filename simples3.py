@@ -537,6 +537,13 @@ class S3Bucket(object):
             if not data:
                 break
 
+    @staticmethod
+    def _now():
+        """
+        Wraps datetime.now() for testability.
+        """
+        return datetime.datetime.now()
+
     def url_for(self, key, authenticated=False,
                 expire=datetime.timedelta(minutes=5)):
         """Produce the URL for given S3 object key.
@@ -568,7 +575,7 @@ class S3Bucket(object):
                     expire = datetime.datetime.fromtimestamp(expire)
                 else:
                     # Assume timedelta.
-                    expire = datetime.datetime.now() + expire
+                    expire = self._now() + expire
             expire_desc = str(long(time.mktime(expire.timetuple())))
             auth_descriptor = "".join((
                 "GET\n",
