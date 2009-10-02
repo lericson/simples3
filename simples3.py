@@ -211,53 +211,6 @@ def info_dict(headers):
         rv["modify"] = _rfc822_dt(headers["last-modified"])
     return rv
 
-def name(o):
-    """Find the name of *o*.
-
-    Functions:
-    >>> name(name)
-    'name'
-    >>> def my_fun(): pass
-    >>> name(my_fun)
-    'my_fun'
-
-    Classes:
-    >>> name(Exception)
-    'exceptions.Exception'
-    >>> class MyKlass(object): pass
-    >>> name(MyKlass)
-    'MyKlass'
-
-    Instances:
-    >>> name(Exception()), name(MyKlass())
-    ('exceptions.Exception', 'MyKlass')
-
-    Types:
-    >>> name(str), name(object), name(int)
-    ('str', 'object', 'int')
-
-    Type instances:
-    >>> name("Hello"), name(True), name(None), name(Ellipsis)
-    ('str', 'bool', 'NoneType', 'ellipsis')
-    """
-    if hasattr(o, "__name__"):
-        rv = o.__name__
-        modname = getattr(o, "__module__", None)
-        # This work-around because Python does it itself,
-        # see typeobject.c, type_repr.
-        # Note that Python only checks for __builtin__.
-        if modname and modname[:2] + modname[-2:] != "____":
-            rv = o.__module__ + "." + rv
-    else:
-        for o in getattr(o, "__mro__", o.__class__.__mro__):
-            rv = name(o)
-            # If there is no name for the this baseclass, this ensures we check
-            # the next rather than say the object has no name (i.e., return
-            # None)
-            if rv is not None:
-                break
-    return rv
-
 class S3Error(Exception):
     def __init__(self, message, **kwds):
         self.args = message, kwds.copy()
