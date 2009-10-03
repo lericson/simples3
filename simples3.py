@@ -509,6 +509,9 @@ class S3Bucket(object):
         *prefix*, if given, predicates `key.startswith(prefix)`.
         *marker*, if given, predicates `key > marker`, lexicographically.
         *limit*, if given, predicates `len(keys) <= limit`.
+
+        *delimiter* can be used to list data hierarchially. See Amazon's AWS S3
+        documentation for more information.
         """
         mapping = (("prefix", prefix),
                    ("marker", marker),
