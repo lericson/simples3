@@ -3,6 +3,7 @@
 import time
 import unittest
 import simples3
+import datetime
 
 class S3BucketTests(unittest.TestCase):
     def setUp(self):
@@ -26,19 +27,20 @@ class S3BucketTests(unittest.TestCase):
              "Signature=rucSbH0yNEcP9oM2XNlouVI3BH4%3D")
         self.assertEquals(x,
             self.bucket.url_for('photos/puppy.jpg', authenticated=True,
-                                expires=1175139620))
+                                expire=1175139620))
 
-    def test_url_for_with_auth_default_expires(self):
+    def test_url_for_with_auth_default_expire(self):
         # Poor man's dynamic scoping is used to
-        # stub out time.time() function.
-        _real_time_func = time.time
-        time.time = lambda: 1239800000.01234
+        # stub out S3Bucket._now() method.
+        t0 = 1239800000.01234
+        _orig_func = self.bucket._now
+        self.bucket._now = lambda: datetime.datetime.fromtimestamp(t0)
         try:
             # Note: expected expiration value is 300 seconds (5 min) greater.
             self.failUnless('Expires=1239800300' in
                 self.bucket.url_for('file.txt', authenticated=True))
         finally:
-            time.time = _real_time_func
+            self.bucket._now = _orig_func
 
 if __name__ == "__main__":
     import doctest
