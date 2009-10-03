@@ -1,1 +1,1 @@
-include LICENSE README TODO setup.py simples3.py changes.rst
+include LICENSE README TODO setup.py simples3.py tests.py changes.rst
