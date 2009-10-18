@@ -5,7 +5,7 @@ try:
 except ImportError:
     import simplejson as json
 
-from .bucket import iso8601_fmt, _iso8601_dt
+from .utils import iso8601_fmt, _iso8601_dt
 
 class S3UploadPolicy(dict):
     @property
