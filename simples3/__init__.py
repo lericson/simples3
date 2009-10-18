@@ -119,6 +119,8 @@ Boom. What's more? Listing the bucket::
 That about sums it up.
 """
 
+__version__ = "0.5"
+
 from .bucket import S3File, S3Bucket, S3Error
 from .upload import S3UploadPolicy, S3UploadForm
 
