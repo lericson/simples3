@@ -1,127 +1,4 @@
-r"""A Simple Amazon AWS S3 interface
-
-And it really is simple.
-
-Setup::
-
-    >>> s = S3Bucket(bucket,
-    ...              access_key=access_key,
-    ...              secret_key=secret_key)
-    ... 
-    >>> print s  # doctest: +ELLIPSIS
-    <S3Bucket ... at 'https://s3.amazonaws.com/...'>
-
-or if you'd like to use virtual host S3::
-
-    >>> s = S3Bucket(bucket,
-    ...              access_key=access_key,
-    ...              secret_key=secret_key,
-    ...              base_url=base_url)
-    >>> print s  # doctest: +ELLIPSIS
-    <S3Bucket ... at 'http...'>
-
-Note that missing slash above, it's important. Think of it as
-"The prefix to which all calls are made." Also the scheme can be `https` or
-regular `http`, or any other urllib2-compatible scheme (that is: you can
-register your own.)
-
-Now, let's start doing something useful. Start out by putting a simple file
-onto there::
-
-    >>> s.put("my file", "my content")
-
-Alright, and fetch it back::
-
-    >>> f = s.get("my file")
-    >>> f.read()
-    'my content'
-
-Nice and tidy, but what if we want to know more about our fetched file? Easy::
-
-    >>> f.s3_info["modify"]  # doctest: +ELLIPSIS
-    datetime.datetime(...)
-    >>> f.s3_info["mimetype"]
-    'application/octet-stream'
-    >>> f.s3_info.keys()
-    ['mimetype', 'modify', 'headers', 'date', 'size', 'metadata']
-    >>> f.close()
-
-Note that the type was octet stream. That's simply because we didn't specify
-anything else. Do that using the `mimetype` keyword argument::
-
-    >>> s.put("my new file!", "Improved content!\nMultiple lines!",
-    ...       mimetype="text/plain")
-
-Let's be cool and use the very Pythonic API to do fetch::
-
-    >>> f = s["my new file!"]
-    >>> print f.read()
-    Improved content!
-    Multiple lines!
-    >>> f.s3_info["mimetype"]
-    'text/plain'
-    >>> f.close()
-
-Great job, huh. Now, let's delete it::
-
-    >>> del s["my new file!"]
-
-Could've used the `delete` method instead, but we didn't.
-
-If you just want to know about a key, ask and ye shall receive::
-
-    >>> from pprint import pprint
-    >>> s["This is a testfile."] = S3File("Hi!", metadata={"hairdo": "Secret"})
-    >>> pprint(s.info("This is a testfile."))  # doctest: +ELLIPSIS
-    {'date': datetime.datetime(...),
-     'headers': {'content-length': '3',
-                 'content-type': 'application/octet-stream',
-                 'date': '...',
-                 'etag': '"..."',
-                 'last-modified': '...',
-                 'server': 'AmazonS3',
-                 'x-amz-id-2': '...',
-                 'x-amz-meta-hairdo': 'Secret',
-                 'x-amz-request-id': '...'},
-     'metadata': {'hairdo': 'Secret'},
-     'mimetype': 'application/octet-stream',
-     'modify': datetime.datetime(...),
-     'size': 3}
-
-Notable is that you got the metadata parsed out in the `metadata` key. You
-might also have noticed how the file was uploaded, using an `S3File` object
-like that. That's a nicer way to do it, in a way.
-
-The `S3File` simply takes its keyword arguments, and passes them on to `put`
-later. Other than that, it's a str subclass.
-
-And the last dict-like behavior is in tests::
-
-    >>> "This is a testfile." in s
-    True
-    >>> del s["This is a testfile."]
-    >>> "This is a testfile." in s
-    False
-
-You can also set a canned ACL using `put`, which is too simple::
-
-    >>> s.put("test/foo", "test", acl="public-read")
-    >>> s.put("test/bar", "rawr", acl="public-read")
-
-Boom. What's more? Listing the bucket::
-
-    >>> for (key, modify, etag, size) in s.listdir(prefix="test/"):
-    ...     print "%r (%r) is size %r, modified %r" % (key, etag, size, modify)
-    ... # doctest: +ELLIPSIS
-    'test/bar' ('"..."') is size 4, modified datetime.datetime(...)
-    'test/foo' ('"..."') is size 4, modified datetime.datetime(...)
-
-That about sums it up.
-"""
-
-# Temporary ChangeLog.
-# 0.2: Added transformers.
-# 0.1: Initial release.
+"""Bucket manipulation"""
 
 import time
 import hmac
@@ -133,17 +10,10 @@ import urllib2
 import datetime
 import mimetypes
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
 rfc822_fmt = '%a, %d %b %Y %H:%M:%S GMT'
 iso8601_fmt = '%Y-%m-%dT%H:%M:%S.000Z'
 
 __version__ = "0.5"
-
-__all__ = "S3File", "S3Bucket", "S3Error", "S3UploadPolicy", "S3UploadForm"
 
 def _amz_canonicalize(headers):
     r"""Canonicalize AMZ headers in that certain AWS way.
@@ -214,6 +84,53 @@ def info_dict(headers):
         rv["date"] = _rfc822_dt(headers["date"]),
     if "last-modified" in headers:
         rv["modify"] = _rfc822_dt(headers["last-modified"])
+    return rv
+
+def name(o):
+    """Find the name of *o*.
+
+    Functions:
+    >>> name(name)
+    'name'
+    >>> def my_fun(): pass
+    >>> name(my_fun)
+    'my_fun'
+
+    Classes:
+    >>> name(Exception)
+    'exceptions.Exception'
+    >>> class MyKlass(object): pass
+    >>> name(MyKlass)
+    'MyKlass'
+
+    Instances:
+    >>> name(Exception()), name(MyKlass())
+    ('exceptions.Exception', 'MyKlass')
+
+    Types:
+    >>> name(str), name(object), name(int)
+    ('str', 'object', 'int')
+
+    Type instances:
+    >>> name("Hello"), name(True), name(None), name(Ellipsis)
+    ('str', 'bool', 'NoneType', 'ellipsis')
+    """
+    if hasattr(o, "__name__"):
+        rv = o.__name__
+        modname = getattr(o, "__module__", None)
+        # This work-around because Python does it itself,
+        # see typeobject.c, type_repr.
+        # Note that Python only checks for __builtin__.
+        if modname and modname[:2] + modname[-2:] != "____":
+            rv = o.__module__ + "." + rv
+    else:
+        for o in getattr(o, "__mro__", o.__class__.__mro__):
+            rv = name(o)
+            # If there is no name for the this baseclass, this ensures we check
+            # the next rather than say the object has no name (i.e., return
+            # None)
+            if rv is not None:
+                break
     return rv
 
 class S3Error(Exception):
@@ -467,9 +384,6 @@ class S3Bucket(object):
         *prefix*, if given, predicates `key.startswith(prefix)`.
         *marker*, if given, predicates `key > marker`, lexicographically.
         *limit*, if given, predicates `len(keys) <= limit`.
-
-        *delimiter* can be used to list data hierarchially. See Amazon's AWS S3
-        documentation for more information.
         """
         mapping = (("prefix", prefix),
                    ("marker", marker),
@@ -566,111 +480,3 @@ class S3Bucket(object):
 
     def delete_bucket(self):
         return self.delete(None)
-
-class S3UploadPolicy(dict):
-    @property
-    def expiration(self):
-        return _iso8601_dt(self["expiration"])
-    @expiration.setter
-    def expiration(self, value):
-        self["expiration"] = value.strftime(iso8601_fmt)
-    @expiration.deleter
-    def expiration(self):
-        del self["expiration"]
-
-    def restrict(self, **conds):
-        for cond, value in conds.iteritems():
-            cond_tp = None
-            if "__" in cond:
-                cond_var, cond_tp = cond.rsplit("__", 1)
-            else:
-                cond_var = cond
-
-            if cond_var == "size":
-                cond_var = "content-length-range"
-            elif cond_var == "success_url":
-                cond_var = "success_action_redirect"
-            elif cond_var == "success_status":
-                cond_var = "success_action_status"
-
-            if cond_tp == "startswith":
-                cond_tp_nam = "starts-with"
-            elif cond_tp == "exact":
-                cond_tp_nam = "eq"
-            elif cond_tp == "between":
-                cond_tp_nam = "range"
-            elif cond_tp is None:
-                cond_tp_nam = None
-            else:
-                raise ValueError("%s is not a valid condition" % cond_tp)
-
-            if cond_tp_nam == "range":
-                rng_min, rng_max = value
-                cond_val = [cond_var, int(rng_min), int(rng_max)]
-            elif cond_tp_nam is not None:
-                cond_val = [cond_tp_nam, "$" + cond_var, value]
-            else:
-                cond_val = {cond_var: value}
-            self.setdefault("conditions", []).append(cond_val)
-
-    def encode(self):
-        """Encode policy as a Base64-encoded JSON string."""
-        return json.dumps(self).encode("base64")[:-1]
-
-class S3UploadForm(object):
-    """AWS S3 HTML upload form helper"""
-
-    # TODO DevPay stuff?
-
-    def __init__(self, key, acl, policy=None, metadata={}, signer=None,
-                 success_url=None, success_status=None):
-        if success_url and success_status:
-            raise ValueError("specify either success_url or success_status")
-        self.key = key
-        self.acl = acl
-        self.metadata = metadata
-        self.signer = signer
-        self.success_url = success_url
-        if success_status:
-            self.success_status = success_status
-        elif not success_url:
-            self.success_status = 204
-        else:
-            self.success_status = None
-        # Set up a sane default policy
-        self.policy = S3UploadPolicy()
-        self.policy.restrict(acl=acl)
-        if self.success_url:
-            self.policy.restrict(success_url=self.success_url)
-        elif self.success_status:
-            self.policy.restrict(success_status=str(self.success_status))
-        if key.endswith("${filename}"):
-            self.policy.restrict(key__startswith=key[:-11])
-        elif "${filename}" not in key:
-            self.policy.restrict(key=key)
-        # Merge user-specified policy
-        for k, v in policy.iteritems():
-            if k == "conditions":
-                self.policy["conditions"].extend(v)
-            else:
-                self.policy[k] = v
-
-    @property
-    def signature(self):
-        """Signature string for the policy."""
-        if not self.policy:
-            raise ValueError("cannot sign empty policy")
-        elif not self.signer:
-            raise TypeError("self.signer is not set")
-        return self.signer(self.policy.encode())
-
-    def bind_to_bucket(self, bucket):
-        """Bind the S3 upload form to *bucket*.
-
-        This really only makes the signature generator use *bucket*, and adds a
-        constraint to the policy which says that only *bucket* can be used.
-        """
-        if self.signer:
-            raise TypeError("cannot bind to a bucket when a signer is set")
-        self.signer = bucket.sign_description
-        self.policy.restrict(bucket=bucket.name)
