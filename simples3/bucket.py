@@ -87,7 +87,7 @@ class S3Bucket(object):
                             r"<ETag>(.+?)</ETag><Size>(\d+?)</Size>$")
 
     def __init__(self, name, access_key=None, secret_key=None, base_url=None):
-        self.opener = urllib2.build_opener(StreamHTTPHandler, StreamHTTPSHandler)
+        self.opener = self.build_opener()
         self.name = name
         self.access_key = access_key
         self.secret_key = secret_key
@@ -118,10 +118,14 @@ class S3Bucket(object):
         else:
             return True
 
+    @classmethod
+    def build_opener(cls):
+        return urllib2.build_opener(StreamHTTPHandler, StreamHTTPSHandler)
+
     def sign_description(self, desc):
         """AWS-style sign data."""
         hasher = hmac.new(self.secret_key, desc.encode("utf-8"), hashlib.sha1)
-        return hasher.digest().encode("base64")[:-1]
+        return hasher.digest().encode("base64").replace("\n", "")
 
     def make_description(self, method, key=None, data=None,
                          headers={}, subresource=None, bucket=None):
@@ -360,3 +364,14 @@ class S3Bucket(object):
 
     def delete_bucket(self):
         return self.delete(None)
+
+class ReadOnlyS3Bucket(S3Bucket):
+    """Read-only S3 bucket.
+
+    Mostly useful for situations where urllib2 isn't available (e.g. Google App
+    Engine), but you still want the utility functions (like generating
+    authenticated URLs, and making upload HTML forms.)
+    """
+
+    def build_opener(self):
+        return None

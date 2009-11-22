@@ -1,8 +1,7 @@
-r"""A Simple Amazon AWS S3 interface
+r"""A simple Amazon AWS S3 interface
 
-And it really is simple.
-
-Setup::
+Access to a bucket is done via the ``S3Bucket`` class. It has three required
+arguments::
 
     >>> s = S3Bucket(bucket,
     ...              access_key=access_key,
@@ -11,7 +10,8 @@ Setup::
     >>> print s  # doctest: +ELLIPSIS
     <S3Bucket ... at 'https://s3.amazonaws.com/...'>
 
-or if you'd like to use virtual host S3::
+or if you'd like to use the use-any-domain-you-want stuff, set *base_url* to
+something like ``http://s3.example.com``::
 
     >>> s = S3Bucket(bucket,
     ...              access_key=access_key,
@@ -22,8 +22,8 @@ or if you'd like to use virtual host S3::
 
 Note that missing slash above, it's important. Think of it as
 "The prefix to which all calls are made." Also the scheme can be `https` or
-regular `http`, or any other urllib2-compatible scheme (that is: you can
-register your own.)
+regular `http`, or any other urllib2-compatible scheme (as in you could
+register your own scheme.)
 
 Now, let's start doing something useful. Start out by putting a simple file
 onto there::
@@ -103,7 +103,7 @@ And the last dict-like behavior is in tests::
     >>> "This is a testfile." in s
     False
 
-You can also set a canned ACL using `put`, which is too simple::
+You can also set a canned ACL using `put`, which is very simple::
 
     >>> s.put("test/foo", "test", acl="public-read")
     >>> s.put("test/bar", "rawr", acl="public-read")
@@ -116,12 +116,11 @@ Boom. What's more? Listing the bucket::
     'test/bar' ('"..."') is size 4, modified datetime.datetime(...)
     'test/foo' ('"..."') is size 4, modified datetime.datetime(...)
 
-That about sums it up.
+That about sums the basics up.
 """
 
 __version__ = "0.5"
 
 from .bucket import S3File, S3Bucket, S3Error
-from .upload import S3UploadPolicy, S3UploadForm
 
-__all__ = "S3File", "S3Bucket", "S3Error", "S3UploadPolicy", "S3UploadForm"
+__all__ = "S3File", "S3Bucket", "S3Error"
