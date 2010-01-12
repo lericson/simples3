@@ -1,9 +1,3 @@
-Changes in simples3 0.6
------------------------
-
- * Added HTML and Flash uploading helpers
- * Split module into a package
-
 Changes in simples3 0.5
 -----------------------
 
