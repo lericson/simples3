@@ -119,7 +119,7 @@ Boom. What's more? Listing the bucket::
 That about sums the basics up.
 """
 
-__version__ = "0.5"
+__version__ = "1.0-alpha"
 
 from .bucket import S3File, S3Bucket, S3Error
 S3File, S3Bucket, S3Error  # pyflakes
