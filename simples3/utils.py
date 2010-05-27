@@ -44,8 +44,22 @@ def aws_md5(data):
 
     >>> aws_md5("Hello!")
     'lS0sVtBIWVgzZ0e83ZhZDQ=='
+    >>> from StringIO import StringIO
+    >>> aws_md5(StringIO("Hello world!"))
+    'hvsmnRkNLIX24EaM7KQqIA=='
     """
-    return hashlib.md5(data).digest().encode("base64")[:-1]
+    hasher = hashlib.new("md5")
+    if hasattr(data, "read"):
+        data.seek(0)
+        while True:
+            chunk = data.read(8192)
+            if not chunk:
+                break
+            hasher.update(chunk)
+        data.seek(0)
+    else:
+        hasher.update(str(data))
+    return hasher.digest().encode("base64").rstrip()
 
 def aws_urlquote(value):
     r"""AWS-style quote a URL part.
