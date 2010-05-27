@@ -217,12 +217,17 @@ class S3Bucket(object):
     def put(self, key, data=None, acl=None, metadata={}, mimetype=None,
             transformer=None, headers={}):
         headers = headers.copy()
-        headers.update({"Content-Type": mimetype or guess_mimetype(key)})
+        if mimetype:
+            headers["Content-Type"] = str(mimetype)
+        elif "Content-Type" not in headers:
+            headers["Content-Type"] = guess_mimetype(key)
         headers.update(metadata_headers(metadata))
         if acl: headers["X-AMZ-ACL"] = acl
         if transformer: data = transformer(headers, data)
-        headers.update({"Content-Length": str(len(data)),
-                        "Content-MD5": aws_md5(data)})
+        if "Content-Length" not in headers:
+            headers["Content-Length"] = str(len(data))
+        if "Content-MD5" not in headers:
+            headers["Content-MD5"] = aws_md5(data)
         self.make_request("PUT", key=key, data=data, headers=headers).close()
 
     def delete(self, key):
