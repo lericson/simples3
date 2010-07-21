@@ -86,7 +86,7 @@ class S3Bucket(object):
                             r"<LastModified>(.{24})</LastModified>"
                             r"<ETag>(.+?)</ETag><Size>(\d+?)</Size>$")
 
-    def __init__(self, name, access_key=None, secret_key=None, base_url=None):
+    def __init__(self, name, access_key=None, secret_key=None, base_url=None, timeout=None):
         self.opener = self.build_opener()
         self.name = name
         self.access_key = access_key
@@ -95,6 +95,7 @@ class S3Bucket(object):
             self.base_url = self.amazon_s3_base + aws_urlquote(name)
         else:
             self.base_url = base_url
+        self.timeout = timeout
 
     def __str__(self):
         return "<%s %s at %r>" % (self.__class__.__name__, self.name, self.base_url)
@@ -181,22 +182,22 @@ class S3Bucket(object):
                                       for item in args_items)
         return url
 
-    def open_request(self, request, errors=True,timeout=None):
-        if timeout:
+    def open_request(self, request, errors=True):
+        if self.timeout:
             try:
-                return self.opener.open(request,timeout=timeout)
+                return self.opener.open(request,timeout=self.timeout)
             except TypeError,e:
                 print(e)
         
         return self.opener.open(request)
         
 
-    def make_request(self, method, key=None, args=None, data=None, headers={}, timeout=None):
+    def make_request(self, method, key=None, args=None, data=None, headers={}):
         for retry_no in xrange(10):
             request = self.new_request(method, key=key, args=args,
                                        data=data, headers=headers)
             try:
-                return self.open_request(request,timeout=timeout)
+                return self.open_request(request)
             except (urllib2.HTTPError, urllib2.URLError), e:
                 # If S3 gives HTTP 500, we should try again.
                 if getattr(e, "code", None) == 500:
@@ -205,8 +206,8 @@ class S3Bucket(object):
         else:
             raise RuntimeError("ran out of retries")  # Shouldn't happen.
 
-    def get(self, key, timeout=None):
-        response = self.make_request("GET", key=key, timeout=timeout)
+    def get(self, key):
+        response = self.make_request("GET", key=key)
         response.s3_info = info_dict(dict(response.info()))
         return response
 
