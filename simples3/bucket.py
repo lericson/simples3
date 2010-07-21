@@ -86,7 +86,8 @@ class S3Bucket(object):
                             r"<LastModified>(.{24})</LastModified>"
                             r"<ETag>(.+?)</ETag><Size>(\d+?)</Size>$")
 
-    def __init__(self, name, access_key=None, secret_key=None, base_url=None):
+    def __init__(self, name, access_key=None, secret_key=None,
+                 base_url=None, timeout=None):
         self.opener = self.build_opener()
         self.name = name
         self.access_key = access_key
@@ -95,6 +96,7 @@ class S3Bucket(object):
             self.base_url = self.amazon_s3_base + aws_urlquote(name)
         else:
             self.base_url = base_url
+        self.timeout = timeout
 
     def __str__(self):
         return "<%s %s at %r>" % (self.__class__.__name__, self.name, self.base_url)
@@ -182,7 +184,14 @@ class S3Bucket(object):
         return url
 
     def open_request(self, request, errors=True):
-            return self.opener.open(request)
+        if self.timeout:
+            try:
+                return self.opener.open(request,timeout=self.timeout)
+            except TypeError,e:
+                print(e)
+        
+        return self.opener.open(request)
+        
 
     def make_request(self, method, key=None, args=None, data=None, headers={}):
         for retry_no in xrange(10):
