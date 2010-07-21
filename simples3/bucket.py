@@ -270,9 +270,13 @@ class S3Bucket(object):
     def listdir(self, prefix=None, marker=None, limit=None, delimiter=None):
         """List contents of bucket.
 
+        Yields tuples of (key, modified, etag, size).
+
         *prefix*, if given, predicates `key.startswith(prefix)`.
         *marker*, if given, predicates `key > marker`, lexicographically.
         *limit*, if given, predicates `len(keys) <= limit`.
+
+        *key* includes the *prefix* if any is given.
         """
         mapping = (("prefix", prefix),
                    ("marker", marker),
