@@ -291,7 +291,7 @@ class S3Bucket(object):
                    ("marker", marker),
                    ("max-keys", limit),
                    ("delimiter", delimiter))
-        args = dict((k, v) for (k, v) in mapping if v is not None)
+        args = dict((str(k), str(v)) for (k, v) in mapping if v is not None)
         response = self.make_request("GET", args=args)
         buffer = ""
         while True:
