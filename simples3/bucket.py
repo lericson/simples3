@@ -187,15 +187,11 @@ class S3Bucket(object):
                                       for item in args_items)
         return url
 
-    def open_request(self, request, errors=True):
+    def open_request(self, request):
         if self.timeout:
-            try:
-                return self.opener.open(request,timeout=self.timeout)
-            except TypeError,e:
-                print(e)
-        
-        return self.opener.open(request)
-        
+            return self.opener.open(request, timeout=self.timeout)
+        else:
+            return self.opener.open(request)
 
     def make_request(self, method, key=None, args=None, data=None, headers={}):
         for retry_no in xrange(10):
