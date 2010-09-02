@@ -69,8 +69,10 @@ class MockBucket(simples3.S3Bucket):
         self.mock_responses[:] = []
         self.mock_requests[:] = []
 
-class g:
-    bucket = None
+class gType(object):
+    pass
+g = type("GType", (object,), {})()
+g.bucket = None
 
 def setup_package():
     # Use the fake S3 credentials from the S3 Developer Guide
