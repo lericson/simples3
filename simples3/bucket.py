@@ -8,10 +8,11 @@ import httplib
 import urllib
 import urllib2
 import datetime
+import warnings
 
 from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmt,
                     _iso8601_dt, aws_md5, aws_urlquote, guess_mimetype,
-                    info_dict)
+                    info_dict, expire2datetime)
 
 class S3Error(Exception):
     def __init__(self, message, **kwds):
@@ -319,58 +320,39 @@ class S3Bucket(object):
             if not data:
                 break
 
-    @staticmethod
-    def _now():
+    def make_url_authed(self, key, expire=datetime.timedelta(minutes=5)):
+        """Produce an authenticated URL for S3 object *key*.
+
+        *expire* is a delta or a datetime on which the authenticated URL
+        expires. It defaults to five minutes, and accepts a timedelta, an
+        integer delta in seconds, or a datetime.
+
+        To generate an unauthenticated URL for a key, see `B.make_url`.
         """
-        Wraps datetime.now() for testability.
-        """
-        return datetime.datetime.now()
+        # NOTE There is a usecase for having a headers argument to this
+        # function - Amazon S3 will validate the X-AMZ-* headers of the GET
+        # request, and so for the browser to send such a header, it would have
+        # to be listed in the signature description.
+        expire = time.mktime(expire2datetime(expire).timetuple()[:9])
+        expire = str(long(expire))  # XXX Why long()?
+        sign = self.get_request_signature("GET", key=key,
+                                          headers={"Date": expire})
+        args = (("AWSAccessKeyId", self.access_key),
+                ("Expires", expire),
+                ("Signature", sign))
+        return self.make_url(key, args, arg_sep="&")
 
     def url_for(self, key, authenticated=False,
                 expire=datetime.timedelta(minutes=5)):
-        """Produce the URL for given S3 object key.
-
-        *key* specifies the S3 object path relative to the
-            base URL of the bucket.
-        *authenticated* asks for URL query string authentication
-            to be used; such URLs include a signature and expiration
-            time, and may be used by HTTP client apps to gain
-            temporary access to private S3 objects.
-        *expire* indicates when the produced URL ceases to function,
-            in seconds from 1970-01-01T00:00:00 UTC; if omitted, the URL
-            will expire in 5 minutes from now.
-
-        URL for a publicly accessible S3 object:
-        >>> S3Bucket("bottle").url_for("the dregs")
-        'https://s3.amazonaws.com/bottle/the%20dregs'
-
-        Query string authenitcated URL example (fake S3 credentials are shown):
-        >>> b = S3Bucket("johnsmith", access_key="0PN5J17HBGZHT7JJ3X82",
-        ...     secret_key="uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o")
-        >>> b.url_for("foo.js", authenticated=True) # doctest: +ELLIPSIS
-        'https://s3.amazonaws.com/johnsmith/foo.js?AWSAccessKeyId=...&Expires=...&Signature=...'
-        """
         if authenticated:
-            if not hasattr(expire, "timetuple"):
-                # XXX isinstance, but who uses UNIX timestamps?
-                if isinstance(expire, (int, long)):
-                    expire = datetime.datetime.fromtimestamp(expire)
-                else:
-                    # Assume timedelta.
-                    expire = self._now() + expire
-            expire_desc = str(long(time.mktime(expire.timetuple())))
-            auth_descriptor = "".join((
-                "GET\n",
-                "\n",
-                "\n",
-                expire_desc + "\n",
-                self.canonicalized_resource(key)  # No "\n" by design!
-            ))
-            args = (("AWSAccessKeyId", self.access_key),
-                    ("Expires", expire_desc),
-                    ("Signature", self.sign_description(auth_descriptor)))
-            return self.make_url(key, args, "&")
+            warnings.warn(DeprecationWarning,
+                          "use make_url_authed instead "
+                          "of url_for(authenticated=True)")
+            return self.make_url_authed(key, expire=expire)
         else:
+            warnings.warn(DeprecationWarning,
+                          "use make_url instead of "
+                          "url_for(authenticated=False)")
             return self.make_url(key)
 
     def put_bucket(self, config_xml=None, acl=None):

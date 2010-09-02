@@ -39,6 +39,43 @@ iso8601_fmt = '%Y-%m-%dT%H:%M:%S.000Z'
 def _rfc822_dt(v): return datetime.datetime.strptime(v, rfc822_fmt)
 def _iso8601_dt(v): return datetime.datetime.strptime(v, iso8601_fmt)
 
+def expire2datetime(expire, base=None):
+    """Force *expire* into a datetime relative to *base*.
+
+    If expire is a relatively small integer, it is assumed to be a delta in
+    seconds. This is possible for deltas up to 10 years.
+
+    If expire is a delta, it is added to *base* to yield the expire date.
+
+    If base isn't given, the current time is assumed.
+
+    >>> base = datetime.datetime(1990, 1, 31, 1, 2, 3)
+    >>> expire2datetime(base) == base
+    True
+    >>> expire2datetime(3600 * 24, base=base) - base
+    datetime.timedelta(1)
+    >>> import time
+    >>> expire2datetime(time.mktime(base.timetuple())) == base
+    True
+    """
+    if hasattr(expire, "timetuple"):
+        return expire
+    if base is None:
+        base = datetime.datetime.now()
+    # *expire* is not a datetime object; try interpreting it
+    # as a timedelta, a UNIX timestamp or offsets in seconds.
+    try:
+        return base + expire
+    except TypeError:
+        # Since the operands could not be added, reinterpret
+        # *expire* as a UNIX timestamp or a delta in seconds.
+        # This is rather arbitrary: 10 years are allowed.
+        unix_eighties = 315529200
+        if expire < unix_eighties:
+            return base + datetime.timedelta(seconds=expire)
+        else:
+            return datetime.datetime.fromtimestamp(expire)
+
 def aws_md5(data):
     """Make an AWS-style MD5 hash (digest in base64).
 
