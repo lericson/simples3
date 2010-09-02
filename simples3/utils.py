@@ -88,7 +88,7 @@ def info_dict(headers):
     if "content-type" in headers:
         rv["mimetype"] = headers["content-type"]
     if "date" in headers:
-        rv["date"] = _rfc822_dt(headers["date"]),
+        rv["date"] = _rfc822_dt(headers["date"])
     if "last-modified" in headers:
         rv["modify"] = _rfc822_dt(headers["last-modified"])
     return rv
