@@ -1,2 +1,2 @@
-include LICENSE README TODO setup.py tests.py changes.rst
+include LICENSE README TODO setup.py changes.rst
 recursive-include simples3 *.py
