@@ -98,21 +98,21 @@ def name(o):
 
     Functions:
     >>> name(name)
-    'name'
+    'simples3.utils.name'
     >>> def my_fun(): pass
     >>> name(my_fun)
-    'my_fun'
+    'simples3.utils.my_fun'
 
     Classes:
     >>> name(Exception)
     'exceptions.Exception'
     >>> class MyKlass(object): pass
     >>> name(MyKlass)
-    'MyKlass'
+    'simples3.utils.MyKlass'
 
     Instances:
     >>> name(Exception()), name(MyKlass())
-    ('exceptions.Exception', 'MyKlass')
+    ('exceptions.Exception', 'simples3.utils.MyKlass')
 
     Types:
     >>> name(str), name(object), name(int)
