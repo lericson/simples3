@@ -27,11 +27,11 @@ class S3Error(Exception):
         return rv
 
     @classmethod
-    def from_urllib(cls, e):
+    def from_urllib(cls, e, **extra):
         """Try to read the real error from AWS."""
-        self = cls("HTTP error")
-        for attr in "reason", "code", "filename":
-            if hasattr(e, attr):
+        self = cls("HTTP error", **extra)
+        for attr in ("reason", "code", "filename"):
+            if attr not in extra and hasattr(e, attr):
                 self.extra[attr] = getattr(e, attr)
         fp = getattr(e, "fp", None)
         if not fp:
@@ -54,6 +54,10 @@ class S3Error(Exception):
 
     @property
     def code(self): return self.extra.get("code")
+
+class KeyNotFound(S3Error):
+    @property
+    def key(self): return self.extra.get("key")
 
 class StreamHTTPHandler(urllib2.HTTPHandler):
     pass
@@ -201,9 +205,14 @@ class S3Bucket(object):
                 return self.open_request(request)
             except (urllib2.HTTPError, urllib2.URLError), e:
                 # If S3 gives HTTP 500, we should try again.
-                if getattr(e, "code", None) == 500:
+                ecode = getattr(e, "code", None)
+                if ecode == 500:
                     continue
-                raise S3Error.from_urllib(e)
+                elif ecode == 404:
+                    exc_cls = KeyNotFound
+                else:
+                    exc_cls = S3Error
+                raise exc_cls.from_urllib(e, key=key)
         else:
             raise RuntimeError("ran out of retries")  # Shouldn't happen.
 

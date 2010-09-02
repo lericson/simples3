@@ -121,6 +121,6 @@ That about sums the basics up.
 
 __version__ = "1.0"
 
-from .bucket import S3File, S3Bucket, S3Error
-S3File, S3Bucket, S3Error  # pyflakes
+from .bucket import S3File, S3Bucket, S3Error, KeyNotFound
+S3File, S3Bucket, S3Error, KeyNotFound  # pyflakes
 __all__ = "S3File", "S3Bucket", "S3Error"
