@@ -1,5 +1,5 @@
 import unittest
-from simples3.tests import g
+from . import g
 
 class URLGenerationTests(unittest.TestCase):
     def test_make_url(self):
