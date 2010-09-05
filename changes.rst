@@ -4,9 +4,9 @@ Changes in simples3 1.0
 * Made simples3 a "flat package", imports work as usual.
 * Refactored ``url_for`` to ``make_url_authed``, ``make_url``.
 * Added an optional timeout argument to the ``S3Bucket`` class.
-* Addded nose-based testing.
+* Added nose-based testing.
 * Added support for streaming with ``poster.streaminghttp``.
-* Addded support for Google App Engine.
+* Added support for Google App Engine.
 
 Changes in simples3 0.5
 -----------------------
