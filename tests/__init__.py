@@ -70,7 +70,6 @@ class MockBucket(simples3.S3Bucket):
 class gType(object):
     pass
 g = type("GType", (object,), {})()
-g.bucket = None
 
 def setup_package():
     # Use the fake S3 credentials from the S3 Developer Guide
@@ -80,7 +79,7 @@ def setup_package():
         base_url="http://johnsmith.s3.amazonaws.com")
 
 def teardown_package():
-    g.bucket = None
+    del g.bucket
 
 def H(ctype, *hpairs):
     n = datetime.datetime.now()
