@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-import unittest
 import datetime
-import doctest
 import urllib2
 from urllib import addinfourl
 from StringIO import StringIO
