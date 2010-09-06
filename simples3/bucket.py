@@ -57,7 +57,7 @@ class S3Error(Exception):
     @property
     def code(self): return self.extra.get("code")
 
-class KeyNotFound(S3Error):
+class KeyNotFound(S3Error, KeyError):
     @property
     def key(self): return self.extra.get("key")
 
@@ -223,12 +223,7 @@ class S3Bucket(object):
         return response
 
     def info(self, key):
-        try:
-            response = self.make_request("HEAD", key=key)
-        except S3Error, e:
-            if e.code == 404:
-                raise KeyError(key)
-            raise e
+        response = self.make_request("HEAD", key=key)
         rv = info_dict(dict(response.info()))
         response.close()
         return rv
@@ -256,15 +251,11 @@ class S3Bucket(object):
         # does not, so treat errors and non-errors as equals.
         try:
             resp = self.make_request("DELETE", key=key)
-        except S3Error, e:
-            resp = e
-        resp.close()
-        if 200 <= resp.code < 300:
-            return True
-        elif resp.code == 404:
-            raise KeyError(key)
+        except KeyNotFound, e:
+            e.fp.close()
+            return False
         else:
-            raise S3Error.from_urllib(resp)
+            return 200 <= resp.code < 300
 
     # TODO Expose the conditional headers, x-amz-copy-source-if-*
     # TODO Add module-level documentation and doctests.
