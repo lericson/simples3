@@ -18,6 +18,8 @@ from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmt,
                     info_dict, expire2datetime)
 
 class S3Error(Exception):
+    fp = None
+
     def __init__(self, message, **kwds):
         self.args = message, kwds.copy()
         self.msg, self.extra = self.args
@@ -37,24 +39,19 @@ class S3Error(Exception):
         for attr in ("reason", "code", "filename"):
             if attr not in extra and hasattr(e, attr):
                 self.extra[attr] = getattr(e, attr)
-        fp = getattr(e, "fp", None)
-        if not fp:
-            return self
-        self.fp = fp
-        # The latter part of this clause is to avoid some weird bug in urllib2
-        # and AWS which has it read as if chunked, and AWS gives empty reply.
-        try:
-            self.data = data = fp.read()
-        except (httplib.HTTPException, urllib2.URLError), e:
-            self.extra["read_error"] = e
-        else:
-            data = data.decode("utf-8")
-            begin, end = data.find("<Message>"), data.find("</Message>")
-            if min(begin, end) >= 0:
-                self.full_message = msg = data[begin + 9:end]
-                self.msg = msg[:100]
-                if self.msg != msg:
-                    self.msg += "..."
+        self.fp = getattr(e, "fp", None)
+        if self.fp:
+            # The except clause is to avoid a bug in urllib2 which has it read
+            # as in chunked mode, but S3 gives an empty reply.
+            try:
+                self.data = data = self.fp.read()
+            except (httplib.HTTPException, urllib2.URLError), e:
+                self.extra["read_error"] = e
+            else:
+                data = data.decode("utf-8")
+                begin, end = data.find("<Message>"), data.find("</Message>")
+                if min(begin, end) >= 0:
+                    self.msg = data[begin + 9:end]
         return self
 
     @property
