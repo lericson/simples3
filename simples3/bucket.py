@@ -8,6 +8,7 @@ import httplib
 import urllib2
 import datetime
 import warnings
+from xml.etree import cElementTree as ElementTree
 from contextlib import contextmanager
 from urllib import quote_plus
 from base64 import b64encode
@@ -89,12 +90,9 @@ class S3File(str):
         return bucket.put(key, **self.kwds)
 
 class S3Bucket(object):
-    amazon_s3_base = "https://s3.amazonaws.com/"
+    amazon_s3_base = "http://s3.amazonaws.com/"
+    amazon_s3_ns_url = amazon_s3_base + "doc/2006-03-01"
     default_encoding = "utf-8"
-
-    listdir_re = re.compile(r"^<Key>(.+?)</Key>"
-                            r"<LastModified>(.{24})</LastModified>"
-                            r"<ETag>(.+?)</ETag><Size>(\d+?)</Size>$")
 
     def __init__(self, name, access_key=None, secret_key=None,
                  base_url=None, timeout=None):
@@ -310,26 +308,15 @@ class S3Bucket(object):
                    ("delimiter", delimiter))
         args = dict((str(k), str(v)) for (k, v) in mapping if v is not None)
         response = self.make_request("GET", args=args)
-        buffer = ""
-        while True:
-            data = response.read(4096)
-            buffer += data
-            while True:
-                pos_end = buffer.find("</Contents>")
-                if pos_end == -1:
-                    break
-                piece = buffer[buffer.index("<Contents>") + 10:pos_end]
-                buffer = buffer[pos_end + 10:]
-                info = piece[:piece.index("<Owner>")]
-                mo = self.listdir_re.match(info)
-                if not mo:
-                    raise ValueError("unexpected: %r" % (piece,))
-                key, modify, etag, size = mo.groups()
-                # FIXME A little brittle I would say...
-                etag = etag.replace("&quot;", '"')
-                yield key, _iso8601_dt(modify), etag, int(size)
-            if not data:
-                break
+        etree = ElementTree.parse(response)
+        root = etree.getroot()
+        mktag = lambda tag: "{%s}%s" % (self.amazon_s3_ns_url, tag)
+        for entry in root.findall(mktag("Contents")):
+            key = entry.findtext(mktag("Key"))
+            modify = _iso8601_dt(entry.findtext(mktag("LastModified")))
+            etag = entry.findtext(mktag("ETag"))
+            size = int(entry.findtext(mktag("Size")))
+            yield (key, modify, etag, size)
 
     def make_url_authed(self, key, expire=datetime.timedelta(minutes=5)):
         """Produce an authenticated URL for S3 object *key*.
