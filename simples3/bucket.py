@@ -5,11 +5,12 @@ import hmac
 import hashlib
 import re
 import httplib
-import urllib
 import urllib2
 import datetime
 import warnings
 from contextlib import contextmanager
+from urllib import quote_plus
+from base64 import b64encode
 
 from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmt,
                     _iso8601_dt, aws_md5, aws_urlquote, guess_mimetype,
@@ -24,7 +25,7 @@ class S3Error(Exception):
         rv = self.msg
         if self.extra:
             rv += " ("
-            rv += ", ".join("%s=%r" % i for i in self.extra.items())
+            rv += ", ".join("%s=%r" % i for i in self.extra.iteritems())
             rv += ")"
         return rv
 
@@ -46,6 +47,7 @@ class S3Error(Exception):
         except (httplib.HTTPException, urllib2.URLError), e:
             self.extra["read_error"] = e
         else:
+            data = data.decode("utf-8")
             begin, end = data.find("<Message>"), data.find("</Message>")
             if min(begin, end) >= 0:
                 self.full_message = msg = data[begin + 9:end]
@@ -88,6 +90,8 @@ class S3File(str):
 
 class S3Bucket(object):
     amazon_s3_base = "https://s3.amazonaws.com/"
+    default_encoding = "utf-8"
+
     listdir_re = re.compile(r"^<Key>(.+?)</Key>"
                             r"<LastModified>(.{24})</LastModified>"
                             r"<ETag>(.+?)</ETag><Size>(\d+?)</Size>$")
@@ -140,8 +144,10 @@ class S3Bucket(object):
 
     def sign_description(self, desc):
         """AWS-style sign data."""
-        hasher = hmac.new(self.secret_key, desc.encode("utf-8"), hashlib.sha1)
-        return hasher.digest().encode("base64").replace("\n", "")
+        key = self.secret_key.encode("ascii")
+        value = desc.encode("utf-8")
+        hasher = hmac.new(key, value, hashlib.sha1)
+        return b64encode(hasher.digest())
 
     def make_description(self, method, key=None, data=None,
                          headers={}, subresource=None, bucket=None):
@@ -188,13 +194,9 @@ class S3Bucket(object):
             url += aws_urlquote(key)
         if args:
             if hasattr(args, "iteritems"):
-                args_items = args.iteritems()
-            elif hasattr(args, "items"):
-                args_items = args.items()
-            else:
-                args_items = args
-            url += "?" + arg_sep.join("=".join(map(urllib.quote_plus, item))
-                                      for item in args_items)
+                args = args.iteritems()
+            args = ((quote_plus(k), quote_plus(v)) for (k, v) in args)
+            url += "?" + arg_sep.join("%s=%s" % i for i in args)
         return url
 
     def open_request(self, request):
@@ -240,6 +242,8 @@ class S3Bucket(object):
 
     def put(self, key, data=None, acl=None, metadata={}, mimetype=None,
             transformer=None, headers={}):
+        if isinstance(data, unicode):
+            data = data.encode(self.default_encoding)
         headers = headers.copy()
         if mimetype:
             headers["Content-Type"] = str(mimetype)
@@ -342,8 +346,9 @@ class S3Bucket(object):
         # function - Amazon S3 will validate the X-AMZ-* headers of the GET
         # request, and so for the browser to send such a header, it would have
         # to be listed in the signature description.
-        expire = time.mktime(expire2datetime(expire).timetuple()[:9])
-        expire = str(long(expire))  # XXX Why long()?
+        expire = expire2datetime(expire)
+        expire = time.mktime(expire.timetuple()[:9])
+        expire = str(int(expire))
         sign = self.get_request_signature("GET", key=key,
                                           headers={"Date": expire})
         args = (("AWSAccessKeyId", self.access_key),

@@ -1,9 +1,10 @@
 """Misc. S3-related utilities."""
 
-import urllib
 import hashlib
 import datetime
 import mimetypes
+from base64 import b64encode
+from urllib import quote
 
 def _amz_canonicalize(headers):
     r"""Canonicalize AMZ headers in that certain AWS way.
@@ -95,8 +96,8 @@ def aws_md5(data):
             hasher.update(chunk)
         data.seek(0)
     else:
-        hasher.update(str(data))
-    return hasher.digest().encode("base64").rstrip()
+        hasher.update(data)
+    return b64encode(hasher.digest()).decode("ascii")
 
 def aws_urlquote(value):
     r"""AWS-style quote a URL part.
@@ -108,7 +109,7 @@ def aws_urlquote(value):
     """
     if isinstance(value, unicode):
         value = value.encode("utf-8")
-    return urllib.quote(value, "/")
+    return quote(value, "/")
 
 def guess_mimetype(fn, default="application/octet-stream"):
     """Guess a mimetype from filename *fn*."""

@@ -34,7 +34,7 @@ class S3Tests(unittest.TestCase):
         eq_(fp.s3_info["mimetype"], "text/plain")
         eq_(fp.s3_info["metadata"], {"foo": "bar"})
         eq_(fp.s3_info["date"], dt)
-        eq_(fp.read(), "ohi")
+        eq_(fp.read().decode("ascii"), "ohi")
 
     def test_get_not_found(self):
         xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -54,7 +54,7 @@ class S3Tests(unittest.TestCase):
     def test_put(self):
         g.bucket.add_resp("/foo.txt", g.H("application/xml"), "OK!")
         g.bucket["foo.txt"] = "hello"
-        hdrs = map(str.lower, g.bucket.mock_requests[-1].headers)
+        hdrs = set(v.lower() for v in g.bucket.mock_requests[-1].headers)
         assert "content-length" in hdrs
         assert "content-type" in hdrs
         assert "content-md5" in hdrs
@@ -63,7 +63,8 @@ class S3Tests(unittest.TestCase):
     def test_put_s3file(self):
         g.bucket.add_resp("/foo.txt", g.H("application/xml"), "OK!")
         g.bucket["foo.txt"] = simples3.S3File("hello")
-        eq_(g.bucket.mock_requests[-1].get_data(), "hello")
+        data = g.bucket.mock_requests[-1].get_data()
+        eq_(data.decode("ascii"), "hello")
 
     def test_put_retry(self):
         eq_(g.bucket.mock_responses, [])
@@ -72,6 +73,7 @@ class S3Tests(unittest.TestCase):
                           status="500 Internal Server Error")
         g.bucket.add_resp("/foo.txt", g.H("text/plain"), "OK!")
         g.bucket.put("foo.txt", "hello")
+        eq_(len(g.bucket.mock_requests), 2)
         for req in g.bucket.mock_requests:
             eq_(req.get_method(), "PUT")
             eq_(req.get_selector(), "/foo.txt")

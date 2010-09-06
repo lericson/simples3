@@ -2,8 +2,13 @@
 
 import datetime
 import urllib2
-from StringIO import StringIO
 from nose.tools import eq_
+
+try:
+    from io import BytesIO
+except ImportError:
+    # 2to3 translates cStringIO to io, so this looks silly on Python 3.x
+    from cStringIO import StringIO as BytesIO
 
 import simples3
 from simples3.utils import rfc822_fmt
@@ -14,8 +19,8 @@ class MockHTTPMessage(object):
         self._m = {}
         if not d:
             return
-        if hasattr(d, "items"):
-            d = d.items()
+        if hasattr(d, "iteritems"):
+            d = d.iteritems()
         for n, v in d:
             self[n] = v
 
@@ -74,7 +79,7 @@ class MockBucket(simples3.S3Bucket):
         return urllib2.build_opener(mockhttp)
 
     def add_resp(self, path, headers, data, status="200 OK"):
-        fp = StringIO(data)
+        fp = BytesIO(data.encode("utf-8"))
         msg = MockHTTPMessage(headers)
         url = self.base_url + path
         resp = MockHTTPResponse(fp, msg, url)
