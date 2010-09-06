@@ -342,6 +342,8 @@ class S3Bucket(object):
 
     def put_bucket(self, config_xml=None, acl=None):
         if config_xml:
+            if isinstance(config_xml, unicode):
+                config_xml = config_xml.encode("utf-8")
             headers = {"Content-Length": len(config_xml),
                        "Content-Type": "text/xml"}
         else:
