@@ -150,12 +150,9 @@ class S3Bucket(object):
         return b64encode(hasher.digest())
 
     def make_description(self, method, key=None, data=None,
-                         headers={}, subresource=None, bucket=None):
+                         headers={}, bucket=None):
         # The signature descriptor is detalied in the developer's PDF on p. 65.
         res = self.canonicalized_resource(key, bucket=bucket)
-        # Append subresource, if any.
-        if subresource:
-            res += "?" + subresource
         # Make description. :/
         return "\n".join((method, headers.get("Content-MD5", ""),
             headers.get("Content-Type", ""), headers.get("Date", ""))) + "\n" +\
@@ -171,9 +168,10 @@ class S3Bucket(object):
         return res
 
     def get_request_signature(self, method, key=None, data=None,
-                              headers={}, subresource=None, bucket=None):
-        return self.sign_description(self.make_description(method, key=key,
-            data=data, headers=headers, subresource=subresource, bucket=bucket))
+                              headers={}, bucket=None):
+        desc = self.make_description(method, key=key, data=data,
+                                     headers=headers, bucket=bucket)
+        return self.sign_description(desc)
 
     def new_request(self, method, key=None, args=None, data=None, headers={}):
         headers = headers.copy()
