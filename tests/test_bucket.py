@@ -6,9 +6,10 @@ import datetime
 from nose.tools import eq_
 
 import simples3
-from simples3.utils import rfc822_fmt
-from tests import setup_package, teardown_package, MockHTTPResponse, g
+from simples3.utils import aws_md5, aws_urlquote, rfc822_fmt
+from tests import MockHTTPResponse, BytesIO, g
 
+from tests import setup_package, teardown_package
 setup_package, teardown_package
 
 class S3BucketTestCase(unittest.TestCase):
@@ -49,6 +50,21 @@ class MiscTests(S3BucketTestCase):
             g.bucket.get("foo.txt")
         except simples3.S3Error, e:
             assert "read_error" in e.extra
+
+    def test_aws_md5_lit(self):
+        val = "Hello!".encode("ascii")
+        eq_(aws_md5(val), 'lS0sVtBIWVgzZ0e83ZhZDQ==')
+
+    def test_aws_md5_fp(self):
+        val = "Hello world!".encode("ascii")
+        eq_(aws_md5(BytesIO(val)), 'hvsmnRkNLIX24EaM7KQqIA==')
+
+    def test_aws_urlquote_funky(self):
+        if hasattr(str, "decode"):
+            val = "/bucket/\xc3\xa5der".decode("utf-8")
+        else:
+            val = "/bucket/\xe5der"
+        eq_(aws_urlquote(val), "/bucket/%C3%A5der")
 
 class GetTests(S3BucketTestCase):
     def test_get(self):

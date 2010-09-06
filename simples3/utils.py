@@ -78,14 +78,7 @@ def expire2datetime(expire, base=None):
             return datetime.datetime.fromtimestamp(expire)
 
 def aws_md5(data):
-    """Make an AWS-style MD5 hash (digest in base64).
-
-    >>> aws_md5("Hello!")
-    u'lS0sVtBIWVgzZ0e83ZhZDQ=='
-    >>> from StringIO import StringIO
-    >>> aws_md5(StringIO("Hello world!"))
-    u'hvsmnRkNLIX24EaM7KQqIA=='
-    """
+    """Make an AWS-style MD5 hash (digest in base64)."""
     hasher = hashlib.new("md5")
     if hasattr(data, "read"):
         data.seek(0)
@@ -104,8 +97,6 @@ def aws_urlquote(value):
 
     >>> aws_urlquote("/bucket/a key")
     '/bucket/a%20key'
-    >>> aws_urlquote(u"/bucket/\xe5der")
-    '/bucket/%C3%A5der'
     """
     if isinstance(value, unicode):
         value = value.encode("utf-8")
@@ -148,15 +139,13 @@ def name(o):
     'simples3.utils.my_fun'
 
     Classes:
-    >>> name(Exception)
-    'exceptions.Exception'
     >>> class MyKlass(object): pass
     >>> name(MyKlass)
     'simples3.utils.MyKlass'
 
     Instances:
-    >>> name(Exception()), name(MyKlass())
-    ('exceptions.Exception', 'simples3.utils.MyKlass')
+    >>> name(MyKlass())
+    'simples3.utils.MyKlass'
 
     Types:
     >>> name(str), name(object), name(int)
@@ -172,7 +161,7 @@ def name(o):
         # This work-around because Python does it itself,
         # see typeobject.c, type_repr.
         # Note that Python only checks for __builtin__.
-        if modname and modname[:2] + modname[-2:] != "____":
+        if modname not in (None, "", "__builtin__", "builtins"):
             rv = o.__module__ + "." + rv
     else:
         for o in getattr(o, "__mro__", o.__class__.__mro__):
