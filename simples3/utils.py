@@ -81,10 +81,10 @@ def aws_md5(data):
     """Make an AWS-style MD5 hash (digest in base64).
 
     >>> aws_md5("Hello!")
-    'lS0sVtBIWVgzZ0e83ZhZDQ=='
+    u'lS0sVtBIWVgzZ0e83ZhZDQ=='
     >>> from StringIO import StringIO
     >>> aws_md5(StringIO("Hello world!"))
-    'hvsmnRkNLIX24EaM7KQqIA=='
+    u'hvsmnRkNLIX24EaM7KQqIA=='
     """
     hasher = hashlib.new("md5")
     if hasattr(data, "read"):
@@ -112,7 +112,13 @@ def aws_urlquote(value):
     return quote(value, "/")
 
 def guess_mimetype(fn, default="application/octet-stream"):
-    """Guess a mimetype from filename *fn*."""
+    """Guess a mimetype from filename *fn*.
+
+    >>> guess_mimetype("foo.txt")
+    'text/plain'
+    >>> guess_mimetype("foo")
+    'application/octet-stream'
+    """
     if "." not in fn:
         return default
     bfn, ext = fn.lower().rsplit(".", 1)
@@ -177,7 +183,3 @@ def name(o):
             if rv is not None:
                 break
     return rv
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()

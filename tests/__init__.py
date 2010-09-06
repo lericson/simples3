@@ -37,7 +37,7 @@ class MockHTTPResponse(object):
         self.read = fp.read
         self.readline = fp.readline
         self.readlines = fp.readlines
-        self.headers = headers
+        self.headers = MockHTTPMessage(headers)
         self.url = url
         self.code = code
 
@@ -83,6 +83,9 @@ class MockBucket(simples3.S3Bucket):
         msg = MockHTTPMessage(headers)
         url = self.base_url + path
         resp = MockHTTPResponse(fp, msg, url)
+        return self.add_resp_obj(resp, status=status)
+
+    def add_resp_obj(self, resp, status="200 OK"):
         resp.code, resp.msg = status.split(" ", 1)
         resp.code = int(resp.code)
         self.mock_responses.append(resp)

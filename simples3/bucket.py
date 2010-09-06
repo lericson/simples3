@@ -331,15 +331,13 @@ class S3Bucket(object):
 
     def url_for(self, key, authenticated=False,
                 expire=datetime.timedelta(minutes=5)):
+        msg = "use %s instead of url_for(authenticated=%r)"
+        dep_cls = DeprecationWarning
         if authenticated:
-            warnings.warn(DeprecationWarning,
-                          "use make_url_authed instead "
-                          "of url_for(authenticated=True)")
+            warnings.warn(dep_cls(msg % ("make_url_authed", True)))
             return self.make_url_authed(key, expire=expire)
         else:
-            warnings.warn(DeprecationWarning,
-                          "use make_url instead of "
-                          "url_for(authenticated=False)")
+            warnings.warn(dep_cls(msg % ("make_url", False)))
             return self.make_url(key)
 
     def put_bucket(self, config_xml=None, acl=None):
