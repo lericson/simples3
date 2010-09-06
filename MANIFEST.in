@@ -1,2 +1,3 @@
 include LICENSE README TODO setup.py changes.rst
 recursive-include simples3 *.py
+recursive-include tests *.py
