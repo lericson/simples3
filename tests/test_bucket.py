@@ -6,7 +6,7 @@ from nose.tools import eq_
 
 import simples3
 from simples3.utils import rfc822_fmt
-from . import setup_package, teardown_package, g
+from tests import setup_package, teardown_package, g
 
 setup_package, teardown_package
 
