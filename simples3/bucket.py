@@ -9,6 +9,7 @@ import urllib
 import urllib2
 import datetime
 import warnings
+from contextlib import contextmanager
 
 from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmt,
                     _iso8601_dt, aws_md5, aws_urlquote, guess_mimetype,
@@ -124,6 +125,14 @@ class S3Bucket(object):
             return False
         else:
             return True
+
+    @contextmanager
+    def timeout_disabled(self):
+        (prev_timeout, self.timeout) = (self.timeout, None)
+        try:
+            yield
+        finally:
+            self.timeout = prev_timeout
 
     @classmethod
     def build_opener(cls):

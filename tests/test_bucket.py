@@ -1,3 +1,5 @@
+from __future__ import with_statement
+
 import unittest
 import datetime
 from nose.tools import eq_
@@ -89,3 +91,9 @@ class S3Tests(unittest.TestCase):
     # TODO def test_delete(self): ...
     # TODO def test_copy(self): ...
     # TODO def test_listdir(self): ...
+
+    def test_timeout_disabled(self):
+        g.bucket.timeout = 10.0
+        with g.bucket.timeout_disabled():
+            eq_(g.bucket.timeout, None)
+        eq_(g.bucket.timeout, 10.0)
