@@ -2,7 +2,6 @@
 
 import datetime
 import urllib2
-from urllib import addinfourl
 from StringIO import StringIO
 from nose.tools import eq_
 
@@ -26,6 +25,26 @@ class MockHTTPMessage(object):
     def __delitem__(self, n): del self._m[unicode(n).lower()]
     def items(self): return self._m.items()
     def iteritems(self): return self._m.iteritems()
+
+class MockHTTPResponse(object):
+    def __init__(self, fp, headers, url, code=None):
+        self.fp = fp
+        self.read = fp.read
+        self.readline = fp.readline
+        self.readlines = fp.readlines
+        self.headers = headers
+        self.url = url
+        self.code = code
+
+    def close(self):
+        self.read = self.readline = self.readlines = None
+        self.fp.close()
+        self.fp = None
+
+    def fileno(self): return None
+    def info(self): return self.headers
+    def getcode(self): return self.code
+    def geturl(self): return self.url
 
 class MockHTTPHandler(urllib2.HTTPHandler):
     def __init__(self, resps, reqs):
@@ -58,7 +77,7 @@ class MockBucket(simples3.S3Bucket):
         fp = StringIO(data)
         msg = MockHTTPMessage(headers)
         url = self.base_url + path
-        resp = addinfourl(fp, msg, url)
+        resp = MockHTTPResponse(fp, msg, url)
         resp.code, resp.msg = status.split(" ", 1)
         resp.code = int(resp.code)
         self.mock_responses.append(resp)
