@@ -294,17 +294,34 @@ class S3Bucket(object):
                    ("marker", marker),
                    ("max-keys", limit),
                    ("delimiter", delimiter))
+
         args = dict((str(k), str(v)) for (k, v) in mapping if v is not None)
-        response = self.make_request("GET", args=args)
-        etree = ElementTree.parse(response)
-        root = etree.getroot()
-        mktag = lambda tag: "{%s}%s" % (self.amazon_s3_ns_url, tag)
-        for entry in root.findall(mktag("Contents")):
-            key = entry.findtext(mktag("Key"))
-            modify = _iso8601_dt(entry.findtext(mktag("LastModified")))
-            etag = entry.findtext(mktag("ETag"))
-            size = int(entry.findtext(mktag("Size")))
-            yield (key, modify, etag, size)
+
+        lastitem = None
+
+        while True:
+            response = self.make_request("GET", args=args)
+            etree = ElementTree.parse(response)
+            root = etree.getroot()
+            mktag = lambda tag: "{%s}%s" % (self.amazon_s3_ns_url, tag)
+            for entry in root.findall(mktag("Contents")):
+                key = entry.findtext(mktag("Key"))
+                modify = _iso8601_dt(entry.findtext(mktag("LastModified")))
+                etag = entry.findtext(mktag("ETag"))
+                size = int(entry.findtext(mktag("Size")))
+                lastitem = (key, modify, etag, size)
+                yield lastitem
+
+            truncated = root.find(mktag('IsTruncated'))
+
+            if truncated is None or truncated.text == 'false':
+                break
+
+            # if we're truncated, there should have been a last item
+            assert(lastitem)
+
+            args['marker'] = lastitem[0] # do it again, with the last key
+
 
     def make_url_authed(self, key, expire=datetime.timedelta(minutes=5)):
         """Produce an authenticated URL for S3 object *key*.
