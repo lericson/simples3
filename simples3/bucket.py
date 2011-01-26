@@ -87,8 +87,8 @@ class S3File(str):
         return bucket.put(key, **self.kwds)
 
 class S3Bucket(object):
-    amazon_s3_base = "http://s3.amazonaws.com/"
-    amazon_s3_ns_url = amazon_s3_base + "doc/2006-03-01"
+    amazon_s3_base = "https://s3.amazonaws.com/"
+    amazon_s3_ns_url = "http://s3.amazonaws.com/doc/2006-03-01/"
     default_encoding = "utf-8"
 
     def __init__(self, name, access_key=None, secret_key=None,
