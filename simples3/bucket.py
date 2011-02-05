@@ -87,18 +87,19 @@ class S3File(str):
         return bucket.put(key, **self.kwds)
 
 class S3Bucket(object):
-    amazon_s3_base = "https://s3.amazonaws.com/"
-    amazon_s3_ns_url = "http://s3.amazonaws.com/doc/2006-03-01/"
+    amazon_s3_domain = "s3.amazonaws.com"
+    amazon_s3_ns_url = "http://%s/doc/2006-03-01/" % amazon_s3_domain
     default_encoding = "utf-8"
 
     def __init__(self, name, access_key=None, secret_key=None,
-                 base_url=None, timeout=None):
+                 base_url=None, timeout=None, secure=False):
         self.opener = self.build_opener()
         self.name = name
         self.access_key = access_key
         self.secret_key = secret_key
         if not base_url:
-            self.base_url = self.amazon_s3_base + aws_urlquote(name)
+          self.base_url = "%s://%s/%s" % ('https' if secure else 'http',
+                                          self.amazon_s3_domain, aws_urlquote(name))
         else:
             self.base_url = base_url
         self.timeout = timeout
