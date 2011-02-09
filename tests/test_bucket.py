@@ -66,6 +66,12 @@ class MiscTests(S3BucketTestCase):
             val = "/bucket/\xe5der"
         eq_(aws_urlquote(val), "/bucket/%C3%A5der")
 
+    def test_amaon_s3_ns_url(self):
+      """The amazon namespace needs to be *exactly* as advertised"""
+      eq_('http://s3.amazonaws.com/doc/2006-03-01', simples3.bucket.amazon_s3_ns_url)
+
+
+
 class GetTests(S3BucketTestCase):
     def test_get(self):
         dt = datetime.datetime(1990, 1, 31, 12, 34, 56)
