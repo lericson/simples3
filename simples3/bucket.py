@@ -17,6 +17,9 @@ from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmt,
                     _iso8601_dt, aws_md5, aws_urlquote, guess_mimetype,
                     info_dict, expire2datetime)
 
+amazon_s3_domain = "s3.amazonaws.com"
+amazon_s3_ns_url = "http://%s/doc/2006-03-01" % amazon_s3_domain
+
 class S3Error(Exception):
     fp = None
 
@@ -86,16 +89,52 @@ class S3File(str):
     def put_into(self, bucket, key):
         return bucket.put(key, **self.kwds)
 
+class S3Listing(object):
+    """Representation of a single pageful of S3 bucket listing data."""
+
+    truncated = None
+
+    def __init__(self, etree):
+        # TODO Use SAX - processes XML before downloading entire response
+        root = etree.getroot()
+        expect_tag = self._mktag("ListBucketResult")
+        if root.tag != expect_tag:
+            raise ValueError("root tag mismatch, wanted %r but got %r"
+                             % (root.tag, expect_tag))
+        self.etree = etree
+        trunc_text = root.findtext(self._mktag("IsTruncated"))
+        self.truncated = {"true": True, "false": False}[trunc_text]
+
+    def __iter__(self):
+        root = self.etree.getroot()
+        for entry in root.findall(self._mktag("Contents")):
+            item = self._el2item(entry)
+            yield item
+        self.next_marker = item[0]
+
+    @classmethod
+    def parse(cls, resp):
+        return cls(ElementTree.parse(resp))
+
+    def _mktag(self, name):
+        return "{%s}%s" % (amazon_s3_ns_url, name)
+
+    def _el2item(self, el):
+        get = lambda tag: el.findtext(self._mktag(tag))
+        key = get("Key")
+        modify = _iso8601_dt(get("LastModified"))
+        etag = get("ETag")
+        size = int(get("Size"))
+        return (key, modify, etag, size)
+
 class S3Bucket(object):
-    amazon_s3_domain = "s3.amazonaws.com"
-    amazon_s3_ns_url = "http://%s/doc/2006-03-01/" % amazon_s3_domain
     default_encoding = "utf-8"
 
     def __init__(self, name, access_key=None, secret_key=None,
                  base_url=None, timeout=None, secure=False):
         scheme = ("http", "https")[int(bool(secure))]
         if not base_url:
-            base_url = "%s://%s/%s" % (scheme, self.amazon_s3_domain, aws_urlquote(name))
+            base_url = "%s://%s/%s" % (scheme, amazon_s3_domain, aws_urlquote(name))
         elif secure is not None:
             if not base_url.startswith(scheme + "://"):
                 raise ValueError("secure=%r, url must use %s"
@@ -283,8 +322,11 @@ class S3Bucket(object):
             headers["X-AMZ-Metadata-Directive"] = "COPY"
         self.make_request("PUT", key=key, headers=headers).close()
 
+    def _get_listing(self, args):
+        return S3Listing.parse(self.make_request("GET", args=args))
+
     def listdir(self, prefix=None, marker=None, limit=None, delimiter=None):
-        """List contents of bucket.
+        """List bucket contents.
 
         Yields tuples of (key, modified, etag, size).
 
@@ -292,23 +334,27 @@ class S3Bucket(object):
         *marker*, if given, predicates `key > marker`, lexicographically.
         *limit*, if given, predicates `len(keys) <= limit`.
 
-        *key* includes the *prefix* if any is given.
+        *key* will include the *prefix* if any is given.
+
+        .. note:: This method can make several requests to S3 if the listing is
+                  very long.
         """
-        mapping = (("prefix", prefix),
-                   ("marker", marker),
-                   ("max-keys", limit),
-                   ("delimiter", delimiter))
-        args = dict((str(k), str(v)) for (k, v) in mapping if v is not None)
-        response = self.make_request("GET", args=args)
-        etree = ElementTree.parse(response)
-        root = etree.getroot()
-        mktag = lambda tag: "{%s}%s" % (self.amazon_s3_ns_url, tag)
-        for entry in root.findall(mktag("Contents")):
-            key = entry.findtext(mktag("Key"))
-            modify = _iso8601_dt(entry.findtext(mktag("LastModified")))
-            etag = entry.findtext(mktag("ETag"))
-            size = int(entry.findtext(mktag("Size")))
-            yield (key, modify, etag, size)
+        m = (("prefix", prefix),
+             ("marker", marker),
+             ("max-keys", limit),
+             ("delimiter", delimiter))
+        args = dict((str(k), str(v)) for (k, v) in m if v is not None)
+
+        listing = self._get_listing(args)
+        while listing:
+            for item in listing:
+                yield item
+
+            if listing.truncated:
+                args["marker"] = listing.next_marker
+                listing = self._get_listing(args)
+            else:
+                break
 
     def make_url_authed(self, key, expire=datetime.timedelta(minutes=5)):
         """Produce an authenticated URL for S3 object *key*.
