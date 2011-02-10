@@ -18,7 +18,7 @@ from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmt,
                     info_dict, expire2datetime)
 
 amazon_s3_domain = "s3.amazonaws.com"
-amazon_s3_ns_url = "http://%s/doc/2006-03-01" % amazon_s3_domain
+amazon_s3_ns_url = "http://%s/doc/2006-03-01/" % amazon_s3_domain
 
 class S3Error(Exception):
     fp = None

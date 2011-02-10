@@ -68,7 +68,7 @@ class MiscTests(S3BucketTestCase):
 
     def test_amaon_s3_ns_url(self):
       """The amazon namespace needs to be *exactly* as advertised"""
-      eq_('http://s3.amazonaws.com/doc/2006-03-01', simples3.bucket.amazon_s3_ns_url)
+      eq_('http://s3.amazonaws.com/doc/2006-03-01/', simples3.bucket.amazon_s3_ns_url)
 
 
 
@@ -194,7 +194,7 @@ class ListDirTests(S3BucketTestCase):
     def test_listdir(self):
         xml = """
 <?xml version="1.0" encoding="UTF-8"?>
-<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01">
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
     <Name>bucket</Name>
     <Prefix/>
     <Marker/>
