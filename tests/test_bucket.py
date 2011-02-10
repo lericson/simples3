@@ -188,10 +188,10 @@ class ListDirTests(S3BucketTestCase):
     def test_listdir(self):
         xml = """
 <?xml version="1.0" encoding="UTF-8"?>
-<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01">
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
     <Name>bucket</Name>
-    <Prefix/>
-    <Marker/>
+    <Prefix></Prefix>
+    <Marker></Marker>
     <MaxKeys>1000</MaxKeys>
     <IsTruncated>false</IsTruncated>
     <Contents>
@@ -199,12 +199,22 @@ class ListDirTests(S3BucketTestCase):
         <LastModified>2009-10-12T17:50:30.000Z</LastModified>
         <ETag>&quot;fba9dede5f27731c9771645a39863328&quot;</ETag>
         <Size>434234</Size>
+        <StorageClass>STANDARD</StorageClass>
+        <Owner>
+            <ID>0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef</ID>
+            <DisplayName>johndoe</DisplayName>
+        </Owner>
     </Contents>
     <Contents>
         <Key>my-third-image.jpg</Key>
         <LastModified>2009-10-12T17:50:30.000Z</LastModified>
         <ETag>&quot;1b2cf535f27731c974343645a3985328&quot;</ETag>
         <Size>64994</Size>
+        <StorageClass>STANDARD</StorageClass>
+        <Owner>
+            <ID>0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef</ID>
+            <DisplayName>johndoe</DisplayName>
+        </Owner>
     </Contents>
 </ListBucketResult>
 """.lstrip()
