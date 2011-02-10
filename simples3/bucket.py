@@ -100,7 +100,7 @@ class S3Listing(object):
         expect_tag = self._mktag("ListBucketResult")
         if root.tag != expect_tag:
             raise ValueError("root tag mismatch, wanted %r but got %r"
-                             % (root.tag, expect_tag))
+                             % (expect_tag, root.tag))
         self.etree = etree
         trunc_text = root.findtext(self._mktag("IsTruncated"))
         self.truncated = {"true": True, "false": False}[trunc_text]
