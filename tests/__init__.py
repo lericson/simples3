@@ -11,7 +11,7 @@ except ImportError:
     from cStringIO import StringIO as BytesIO
 
 import simples3
-from simples3.utils import rfc822_fmt
+from simples3.utils import rfc822_fmtdate
 
 # httplib.HTTPMessage is useless for mocking contexts, use own
 class MockHTTPMessage(object):
@@ -112,7 +112,7 @@ def H(ctype, *hpairs):
         ("x-amz-request-id", "abcdef"),
         ("x-amz-id-2", "foobar"),
         ("Server", "AmazonS3"),
-        ("Date", n.strftime(rfc822_fmt))])
+        ("Date", rfc822_fmtdate(n))])
     msg["Content-Type"] = ctype
     for h, v in hpairs:
         msg[h] = v

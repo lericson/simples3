@@ -6,11 +6,18 @@ import datetime
 from nose.tools import eq_
 
 import simples3
-from simples3.utils import aws_md5, aws_urlquote, rfc822_fmt
+from simples3.utils import aws_md5, aws_urlquote
+from simples3.utils import rfc822_fmtdate, rfc822_parsedate
 from tests import MockHTTPResponse, BytesIO, g
 
 from tests import setup_package, teardown_package
 setup_package, teardown_package
+
+def test_rfc822():
+    s = rfc822_fmtdate()
+    dt = rfc822_parsedate(s)
+    eq_(s, rfc822_fmtdate(dt))
+    eq_(dt, rfc822_parsedate(s))
 
 class S3BucketTestCase(unittest.TestCase):
     def setUp(self):
@@ -74,7 +81,7 @@ class GetTests(S3BucketTestCase):
     def test_get(self):
         dt = datetime.datetime(1990, 1, 31, 12, 34, 56)
         headers = g.H("text/plain",
-            ("date", dt.strftime(rfc822_fmt)),
+            ("date", rfc822_fmtdate(dt)),
             ("x-amz-meta-foo", "bar"))
         g.bucket.add_resp("/foo.txt", headers, "ohi")
         fp = g.bucket["foo.txt"]

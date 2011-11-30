@@ -1,10 +1,12 @@
 """Misc. S3-related utilities."""
 
+import time
 import hashlib
 import datetime
 import mimetypes
 from base64 import b64encode
 from urllib import quote
+from calendar import timegm
 
 def _amz_canonicalize(headers):
     r"""Canonicalize AMZ headers in that certain AWS way.
@@ -34,11 +36,17 @@ def headers_metadata(headers):
     return dict((h[11:], v) for h, v in headers.iteritems()
                             if h.lower().startswith("x-amz-meta-"))
 
-rfc822_fmt = '%a, %d %b %Y %H:%M:%S GMT'
 iso8601_fmt = '%Y-%m-%dT%H:%M:%S.000Z'
 
-def _rfc822_dt(v): return datetime.datetime.strptime(v, rfc822_fmt)
 def _iso8601_dt(v): return datetime.datetime.strptime(v, iso8601_fmt)
+def rfc822_fmtdate(t=None):
+    from email.utils import formatdate
+    if t is None:
+        t = datetime.datetime.utcnow()
+    return formatdate(timegm(t.timetuple()), usegmt=True)
+def rfc822_parsedate(v):
+    from email.utils import parsedate
+    return datetime.datetime.fromtimestamp(time.mktime(parsedate(v)))
 
 def expire2datetime(expire, base=None):
     """Force *expire* into a datetime relative to *base*.
@@ -123,9 +131,9 @@ def info_dict(headers):
     if "content-type" in headers:
         rv["mimetype"] = headers["content-type"]
     if "date" in headers:
-        rv["date"] = _rfc822_dt(headers["date"])
+        rv["date"] = rfc822_parsedate(headers["date"])
     if "last-modified" in headers:
-        rv["modify"] = _rfc822_dt(headers["last-modified"])
+        rv["modify"] = rfc822_parsedate(headers["last-modified"])
     return rv
 
 def name(o):

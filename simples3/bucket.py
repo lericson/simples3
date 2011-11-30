@@ -15,9 +15,8 @@ from contextlib import contextmanager
 from urllib import quote_plus
 from base64 import b64encode
 
-from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmt,
-                    _iso8601_dt, aws_md5, aws_urlquote, guess_mimetype,
-                    info_dict, expire2datetime)
+from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmtdate, _iso8601_dt,
+                    aws_md5, aws_urlquote, guess_mimetype, info_dict, expire2datetime)
 
 amazon_s3_domain = "s3.amazonaws.com"
 amazon_s3_ns_url = "http://%s/doc/2006-03-01/" % amazon_s3_domain
@@ -218,7 +217,7 @@ class S3Bucket(object):
         if data and "Content-MD5" not in headers:
             headers["Content-MD5"] = aws_md5(data)
         if "Date" not in headers:
-            headers["Date"] = time.strftime(rfc822_fmt, time.gmtime())
+            headers["Date"] = rfc822_fmtdate()
         if "Authorization" not in headers:
             sign = self.get_request_signature(method, key=key, data=data,
                                               headers=headers)
