@@ -14,6 +14,7 @@ from xml.etree import cElementTree as ElementTree
 from contextlib import contextmanager
 from urllib import quote_plus
 from base64 import b64encode
+from cgi import escape
 
 from .utils import (_amz_canonicalize, metadata_headers, rfc822_fmtdate, _iso8601_dt,
                     aws_md5, aws_urlquote, guess_mimetype, info_dict, expire2datetime)
@@ -299,16 +300,37 @@ class S3Bucket(object):
             headers["Content-MD5"] = aws_md5(data)
         self.make_request("PUT", key=key, data=data, headers=headers).close()
 
-    def delete(self, key):
-        # In <=py25, urllib2 raises an exception for HTTP 204, and later
-        # does not, so treat errors and non-errors as equals.
-        try:
-            resp = self.make_request("DELETE", key=key)
-        except KeyNotFound, e:
-            e.fp.close()
-            return False
+    def delete(self, *keys):
+        keys_len = len(keys)
+        if keys_len < 1:
+            raise TypeError("required one key at least")
+        elif keys_len == 1:
+            # In <=py25, urllib2 raises an exception for HTTP 204, and later
+            # does not, so treat errors and non-errors as equals.
+            try:
+                resp = self.make_request("DELETE", key=keys[0])
+            except KeyNotFound, e:
+                e.fp.close()
+                return False
+            else:
+                return 200 <= resp.code < 300
+        elif 1 < keys_len <= 1000:
+            object_format = "<Object><Key>%s</Key></Object>"
+            objects = "".join(object_format % escape(k) for k in keys)
+            data = ('<?xml version="1.0" encoding="UTF-8"?><Delete>'
+                    "<Quiet>true</Quiet>%s</Delete>") % objects
+            headers = {"Content-Type": "multipart/form-data"}
+            try:
+                resp = self.make_request("POST", data=data, headers=headers,
+                                         subresource="delete")
+            except KeyNotFound, e:
+                e.fp.close()
+                return False
+            else:
+                return 200 <= resp.code < 300
         else:
-            return 200 <= resp.code < 300
+            raise TypeError("the number of keys can be up to 1000, but the "
+                            "number of passes keys are " + repr(keys_len))
 
     # TODO Expose the conditional headers, x-amz-copy-source-if-*
     # TODO Add module-level documentation and doctests.

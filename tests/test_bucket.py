@@ -164,6 +164,13 @@ class DeleteTests(S3BucketTestCase):
         req = g.bucket.mock_requests[-1]
         eq_(req.get_method(), "DELETE")
 
+    def test_delete_multi_object(self):
+        expected = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                    '<DeleteResult xmlns="http://s3.amazonaws.com/doc/2006-'
+                    '03-01/"></DeleteResult>')
+        g.bucket.add_resp("/?delete", g.H("application/xml"), expected)
+        assert g.bucket.delete("foo.txt", "bar.txt", "baz.txt")
+
     def test_delete_not_found(self):
         g.bucket.add_resp("/foo.txt", g.H("application/xml"),
                           "<notfound />", status="404 Not Found")
