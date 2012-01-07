@@ -230,10 +230,12 @@ class S3Bucket(object):
         if key:
             url += aws_urlquote(key)
         if args:
-            if hasattr(args, "iteritems"):
-                args = args.iteritems()
-            args = ((quote_plus(k), quote_plus(v)) for (k, v) in args)
-            url += "?" + arg_sep.join("%s=%s" % i for i in args)
+            if not isinstance(args, str):
+                if hasattr(args, "iteritems"):
+                    args = args.iteritems()
+                args = ((quote_plus(k), quote_plus(v)) for (k, v) in args)
+                args = arg_sep.join("%s=%s" % i for i in args)
+            url += "?" + args
         return url
 
     def open_request(self, request):
