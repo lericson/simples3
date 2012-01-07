@@ -189,40 +189,45 @@ class S3Bucket(object):
         return b64encode(hasher.digest())
 
     def make_description(self, method, key=None, data=None,
-                         headers={}, bucket=None):
+                         headers={}, subresource=None, bucket=None):
         # The signature descriptor is detalied in the developer's PDF on p. 65.
-        res = self.canonicalized_resource(key, bucket=bucket)
+        res = self.canonicalized_resource(key, subresource, bucket=bucket)
         # Make description. :/
         return "\n".join((method, headers.get("Content-MD5", ""),
             headers.get("Content-Type", ""), headers.get("Date", ""))) + "\n" +\
             _amz_canonicalize(headers) + res
 
-    def canonicalized_resource(self, key, bucket=None):
+    def canonicalized_resource(self, key, subresource=None, bucket=None):
         res = "/"
         if bucket or bucket is None:
             res += aws_urlquote(bucket or self.name)
         res += "/"
         if key:
             res += aws_urlquote(key)
+        if subresource:
+            res += "?" + subresource
         return res
 
     def get_request_signature(self, method, key=None, data=None,
-                              headers={}, bucket=None):
+                              headers={}, subresource=None, bucket=None):
         desc = self.make_description(method, key=key, data=data,
-                                     headers=headers, bucket=bucket)
+                                     headers=headers, subresource=subresource,
+                                     bucket=bucket)
         return self.sign_description(desc)
 
-    def new_request(self, method, key=None, args=None, data=None, headers={}):
+    def new_request(self, method, key=None, args=None, data=None, headers={},
+                    subresource=None):
         headers = headers.copy()
         if data and "Content-MD5" not in headers:
             headers["Content-MD5"] = aws_md5(data)
         if "Date" not in headers:
             headers["Date"] = rfc822_fmtdate()
         if "Authorization" not in headers:
-            sign = self.get_request_signature(method, key=key, data=data,
-                                              headers=headers)
+            sign = self.get_request_signature(method, key=key,
+                                              data=data, headers=headers,
+                                              subresource=subresource)
             headers["Authorization"] = "AWS %s:%s" % (self.access_key, sign)
-        url = self.make_url(key, args)
+        url = self.make_url(key, subresource or args)
         return AnyMethodRequest(method, url, data=data, headers=headers)
 
     def make_url(self, key, args=None, arg_sep=";"):
@@ -244,10 +249,12 @@ class S3Bucket(object):
         else:
             return self.opener.open(request)
 
-    def make_request(self, method, key=None, args=None, data=None, headers={}):
+    def make_request(self, method, key=None, args=None, data=None, headers={},
+                     subresource=None):
         for retry_no in xrange(10):
             request = self.new_request(method, key=key, args=args,
-                                       data=data, headers=headers)
+                                       data=data, headers=headers,
+                                       subresource=subresource)
             try:
                 return self.open_request(request)
             except (urllib2.HTTPError, urllib2.URLError), e:
