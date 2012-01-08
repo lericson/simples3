@@ -127,7 +127,6 @@ class S3Request(object):
         "Sign the request with credentials *cred*."
         desc = self.descriptor()
         key = cred.secret_key.encode("utf-8")
-        print repr(key), repr(desc)
         hasher = hmac.new(key, desc.encode("utf-8"), hashlib.sha1)
         sign = b64encode(hasher.digest())
         self.headers["Authorization"] = "AWS %s:%s" % (cred.access_key, sign)
