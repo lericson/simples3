@@ -80,6 +80,81 @@ class AnyMethodRequest(urllib2.Request):
     def get_method(self):
         return self.method
 
+class S3Request(object):
+    urllib_request_cls = AnyMethodRequest
+
+    def __init__(self, bucket=None, key=None, method="GET", headers={},
+                 args=None, data=None, subresource=None):
+        headers = headers.copy()
+        if data and "Content-MD5" not in headers:
+            headers["Content-MD5"] = aws_md5(data)
+        if "Date" not in headers:
+            headers["Date"] = rfc822_fmtdate()
+        if hasattr(bucket, "name"):
+            bucket = bucket.name
+        self.bucket = bucket
+        self.key = key
+        self.method = method
+        self.headers = headers
+        self.args = args
+        self.data = data
+        self.subresource = subresource
+
+    def __str__(self):
+        return "<S3 %s request bucket %r key %r>" % (self.method, self.bucket, self.key)
+
+    def descriptor(self):
+        # The signature descriptor is detalied in the developer's PDF on p. 65.
+        lines = (self.method,
+                 self.headers.get("Content-MD5", ""),
+                 self.headers.get("Content-Type", ""),
+                 self.headers.get("Date", ""))
+        preamb = "\n".join(str(line) for line in lines) + "\n"
+        headers = _amz_canonicalize(self.headers)
+        res = self.canonical_resource
+        return "".join((preamb, headers, res))
+
+    @property
+    def canonical_resource(self):
+        res = "/%s/" % aws_urlquote(self.bucket)
+        if self.key:
+            res += aws_urlquote(self.key)
+        if self.subresource:
+            res += "?" + aws_urlquote(self.subresource)
+        return res
+
+    def sign(self, cred):
+        "Sign the request with credentials *cred*."
+        desc = self.descriptor()
+        key = cred.secret_key.encode("utf-8")
+        print repr(key), repr(desc)
+        hasher = hmac.new(key, desc.encode("utf-8"), hashlib.sha1)
+        sign = b64encode(hasher.digest())
+        self.headers["Authorization"] = "AWS %s:%s" % (cred.access_key, sign)
+        return sign
+
+    def urllib(self, bucket):
+        return self.urllib_request_cls(self.method, self.url(bucket.base_url),
+                                       data=self.data, headers=self.headers)
+
+    def url(self, base_url, arg_sep=";"):
+        url = base_url + "/"
+        if self.key:
+            url += aws_urlquote(self.key)
+        if self.subresource or self.args:
+            ps = []
+            if self.subresource:
+                ps.append(self.subresource)
+            if self.args:
+                args = self.args
+                if hasattr(args, "iteritems"):
+                    args = args.iteritems()
+                args = ((quote_plus(k), quote_plus(v)) for (k, v) in args)
+                args = arg_sep.join("%s=%s" % i for i in args)
+                ps.append(args)
+            url += "?" + "&".join(ps)
+        return url
+
 class S3File(str):
     def __new__(cls, value, **kwds):
         return super(S3File, cls).__new__(cls, value)
@@ -131,6 +206,7 @@ class S3Listing(object):
 
 class S3Bucket(object):
     default_encoding = "utf-8"
+    n_retries = 10
 
     def __init__(self, name, access_key=None, secret_key=None,
                  base_url=None, timeout=None, secure=False):
@@ -182,82 +258,19 @@ class S3Bucket(object):
     def build_opener(cls):
         return urllib2.build_opener(StreamHTTPHandler, StreamHTTPSHandler)
 
-    def sign_description(self, desc):
-        """AWS-style sign data."""
-        key = self.secret_key.encode("ascii")
-        value = desc.encode("utf-8")
-        hasher = hmac.new(key, value, hashlib.sha1)
-        return b64encode(hasher.digest())
+    def request(self, *a, **k):
+        k.setdefault("bucket", self.name)
+        return S3Request(*a, **k)
 
-    def make_description(self, method, key=None, data=None,
-                         headers={}, subresource=None, bucket=None):
-        # The signature descriptor is detalied in the developer's PDF on p. 65.
-        res = self.canonicalized_resource(key, subresource, bucket=bucket)
-        # Make description. :/
-        return "\n".join((method, headers.get("Content-MD5", ""),
-            headers.get("Content-Type", ""), headers.get("Date", ""))) + "\n" +\
-            _amz_canonicalize(headers) + res
-
-    def canonicalized_resource(self, key, subresource=None, bucket=None):
-        res = "/"
-        if bucket or bucket is None:
-            res += aws_urlquote(bucket or self.name)
-        res += "/"
-        if key:
-            res += aws_urlquote(key)
-        if subresource:
-            res += "?" + subresource
-        return res
-
-    def get_request_signature(self, method, key=None, data=None,
-                              headers={}, subresource=None, bucket=None):
-        desc = self.make_description(method, key=key, data=data,
-                                     headers=headers, subresource=subresource,
-                                     bucket=bucket)
-        return self.sign_description(desc)
-
-    def new_request(self, method, key=None, args=None, data=None, headers={},
-                    subresource=None):
-        headers = headers.copy()
-        if data and "Content-MD5" not in headers:
-            headers["Content-MD5"] = aws_md5(data)
-        if "Date" not in headers:
-            headers["Date"] = rfc822_fmtdate()
-        if "Authorization" not in headers:
-            sign = self.get_request_signature(method, key=key,
-                                              data=data, headers=headers,
-                                              subresource=subresource)
-            headers["Authorization"] = "AWS %s:%s" % (self.access_key, sign)
-        url = self.make_url(key, subresource or args)
-        return AnyMethodRequest(method, url, data=data, headers=headers)
-
-    def make_url(self, key, args=None, arg_sep=";"):
-        url = self.base_url + "/"
-        if key:
-            url += aws_urlquote(key)
-        if args:
-            if not isinstance(args, str):
-                if hasattr(args, "iteritems"):
-                    args = args.iteritems()
-                args = ((quote_plus(k), quote_plus(v)) for (k, v) in args)
-                args = arg_sep.join("%s=%s" % i for i in args)
-            url += "?" + args
-        return url
-
-    def open_request(self, request):
-        if self.timeout:
-            return self.opener.open(request, timeout=self.timeout)
-        else:
-            return self.opener.open(request)
-
-    def make_request(self, method, key=None, args=None, data=None, headers={},
-                     subresource=None):
-        for retry_no in xrange(10):
-            request = self.new_request(method, key=key, args=args,
-                                       data=data, headers=headers,
-                                       subresource=subresource)
+    def send(self, s3req):
+        s3req.sign(self)
+        for retry_no in xrange(self.n_retries):
+            req = s3req.urllib(self)
             try:
-                return self.open_request(request)
+                if self.timeout:
+                    return self.opener.open(req, timeout=self.timeout)
+                else:
+                    return self.opener.open(req)
             except (urllib2.HTTPError, urllib2.URLError), e:
                 # If S3 gives HTTP 500, we should try again.
                 ecode = getattr(e, "code", None)
@@ -267,17 +280,22 @@ class S3Bucket(object):
                     exc_cls = KeyNotFound
                 else:
                     exc_cls = S3Error
-                raise exc_cls.from_urllib(e, key=key)
+                raise exc_cls.from_urllib(e, key=s3req.key)
         else:
             raise RuntimeError("ran out of retries")  # Shouldn't happen.
 
+    def make_request(self, *a, **k):
+        warnings.warn(DeprecationWarning("make_request() is deprecated, "
+                                         "use request() and send()"))
+        return self.send(self.request(*a, **k))
+
     def get(self, key):
-        response = self.make_request("GET", key=key)
+        response = self.send(self.request(key=key))
         response.s3_info = info_dict(dict(response.info()))
         return response
 
     def info(self, key):
-        response = self.make_request("HEAD", key=key)
+        response = self.send(self.request(method="HEAD", key=key))
         rv = info_dict(dict(response.info()))
         response.close()
         return rv
@@ -298,39 +316,35 @@ class S3Bucket(object):
             headers["Content-Length"] = str(len(data))
         if "Content-MD5" not in headers:
             headers["Content-MD5"] = aws_md5(data)
-        self.make_request("PUT", key=key, data=data, headers=headers).close()
+        s3req = self.request(method="PUT", key=key, data=data, headers=headers)
+        self.send(s3req).close()
 
     def delete(self, *keys):
-        keys_len = len(keys)
-        if keys_len < 1:
+        n_keys = len(keys)
+        if not keys:
             raise TypeError("required one key at least")
-        elif keys_len == 1:
+
+        if n_keys == 1:
             # In <=py25, urllib2 raises an exception for HTTP 204, and later
             # does not, so treat errors and non-errors as equals.
             try:
-                resp = self.make_request("DELETE", key=keys[0])
-            except KeyNotFound, e:
-                e.fp.close()
-                return False
-            else:
-                return 200 <= resp.code < 300
-        elif 1 < keys_len <= 1000:
-            object_format = "<Object><Key>%s</Key></Object>"
-            objects = "".join(object_format % escape(k) for k in keys)
-            data = ('<?xml version="1.0" encoding="UTF-8"?><Delete>'
-                    "<Quiet>true</Quiet>%s</Delete>") % objects
-            headers = {"Content-Type": "multipart/form-data"}
-            try:
-                resp = self.make_request("POST", data=data, headers=headers,
-                                         subresource="delete")
+                resp = self.send(self.request(method="DELETE", key=keys[0]))
             except KeyNotFound, e:
                 e.fp.close()
                 return False
             else:
                 return 200 <= resp.code < 300
         else:
-            raise TypeError("the number of keys can be up to 1000, but the "
-                            "number of passes keys are " + repr(keys_len))
+            if n_keys > 1000:
+                raise ValueError("cannot delete more than 1000 keys at a time")
+            fmt = "<Object><Key>%s</Key></Object>"
+            body = "".join(fmt % escape(k) for k in keys)
+            data = ('<?xml version="1.0" encoding="UTF-8"?><Delete>'
+                    "<Quiet>true</Quiet>%s</Delete>") % body
+            headers = {"Content-Type": "multipart/form-data"}
+            resp = self.send(self.request(method="POST", data=data,
+                                          headers=headers, subresource="delete"))
+            return 200 <= resp.code < 300
 
     # TODO Expose the conditional headers, x-amz-copy-source-if-*
     # TODO Add module-level documentation and doctests.
@@ -352,10 +366,10 @@ class S3Bucket(object):
             headers.update(metadata_headers(metadata))
         else:
             headers["X-AMZ-Metadata-Directive"] = "COPY"
-        self.make_request("PUT", key=key, headers=headers).close()
+        self.send(self.request(method="PUT", key=key, headers=headers)).close()
 
     def _get_listing(self, args):
-        return S3Listing.parse(self.make_request("GET", args=args))
+        return S3Listing.parse(self.send(self.request(args=args)))
 
     def listdir(self, prefix=None, marker=None, limit=None, delimiter=None):
         """List bucket contents.
@@ -388,6 +402,10 @@ class S3Bucket(object):
             else:
                 break
 
+    def make_url(self, key, args=None, arg_sep=";"):
+        s3req = self.request(key=key, args=args)
+        return s3req.url(self.base_url, arg_sep=arg_sep)
+
     def make_url_authed(self, key, expire=datetime.timedelta(minutes=5)):
         """Produce an authenticated URL for S3 object *key*.
 
@@ -404,12 +422,12 @@ class S3Bucket(object):
         expire = expire2datetime(expire)
         expire = time.mktime(expire.timetuple()[:9])
         expire = str(int(expire))
-        sign = self.get_request_signature("GET", key=key,
-                                          headers={"Date": expire})
-        args = (("AWSAccessKeyId", self.access_key),
-                ("Expires", expire),
-                ("Signature", sign))
-        return self.make_url(key, args, arg_sep="&")
+        s3req = self.request(key=key, headers={"Date": expire})
+        sign = s3req.sign(self)
+        s3req.args = (("AWSAccessKeyId", self.access_key),
+                      ("Expires", expire),
+                      ("Signature", sign))
+        return s3req.url(self.base_url, arg_sep="&")
 
     def url_for(self, key, authenticated=False,
                 expire=datetime.timedelta(minutes=5)):
@@ -432,7 +450,8 @@ class S3Bucket(object):
             headers = {"Content-Length": "0"}
         if acl:
             headers["X-AMZ-ACL"] = acl
-        resp = self.make_request("PUT", key=None, data=config_xml, headers=headers)
+        resp = self.send(self.request(method="PUT", key=None,
+                                      data=config_xml, headers=headers))
         resp.close()
         return resp.code == 200
 
