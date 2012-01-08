@@ -43,6 +43,7 @@ class MiscTests(S3BucketTestCase):
         with g.bucket.timeout_disabled():
             eq_(g.bucket.timeout, None)
         eq_(g.bucket.timeout, 10.0)
+        g.bucket.timeout = None
 
     def test_error_in_error(self):
         # a hairy situation: an error arising during the parsing of an error.
