@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import time
 import hmac
 import hashlib
-import re
 import httplib
 import urllib2
 import datetime
@@ -186,7 +185,7 @@ class S3Listing(object):
         for entry in root.findall(self._mktag("Contents")):
             item = self._el2item(entry)
             yield item
-        self.next_marker = item[0]
+            self.next_marker = item[0]
 
     @classmethod
     def parse(cls, resp):

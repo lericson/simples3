@@ -249,6 +249,20 @@ class ListDirTests(S3BucketTestCase):
             eq_(tup, next_reftup())
             key, mtype, etag, size = tup
 
+    def test_empty_listing(self):
+        xml = """
+<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Name>bucket</Name>
+    <Prefix></Prefix>
+    <Marker></Marker>
+    <MaxKeys>1000</MaxKeys>
+    <IsTruncated>false</IsTruncated>
+</ListBucketResult>
+""".lstrip()
+        g.bucket.add_resp("/", g.H("application/xml"), xml)
+        eq_([], list(g.bucket.listdir()))
+
 class ModifyBucketTests(S3BucketTestCase):
     def test_bucket_put(self):
         g.bucket.add_resp("/", g.H("application/xml"), "<ok />")
