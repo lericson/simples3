@@ -47,6 +47,7 @@ class StreamingMixin(object):
         size, and ``last_read`` is how much was last read. ``last_read`` is
         zero on EOF.
         """
+        headers = headers.copy()
         do_close = False
         if not hasattr(fp, "read"):
             fp = open(fp, "rb")

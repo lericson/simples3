@@ -11,6 +11,7 @@ except ImportError:
     from cStringIO import StringIO as BytesIO
 
 import simples3
+import simples3.streaming
 from simples3.utils import rfc822_fmtdate
 
 # httplib.HTTPMessage is useless for mocking contexts, use own
@@ -94,6 +95,9 @@ class MockBucket(simples3.S3Bucket):
         self.mock_responses[:] = []
         self.mock_requests[:] = []
 
+class MockStreamingBucket(MockBucket, simples3.streaming.StreamingS3Bucket):
+    pass
+
 g = type("Globals", (object,), {})()
 
 def setup_package():
@@ -102,9 +106,14 @@ def setup_package():
         access_key="0PN5J17HBGZHT7JJ3X82",
         secret_key="uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o",
         base_url="http://johnsmith.s3.amazonaws.com")
+    g.streaming_bucket = MockStreamingBucket("johnsmith",
+        access_key="0PN5J17HBGZHT7JJ3X82",
+        secret_key="uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o",
+        base_url="http://johnsmith.s3.amazonaws.com")
 
 def teardown_package():
     del g.bucket
+    del g.streaming_bucket
 
 def H(ctype, *hpairs):
     n = datetime.datetime.now()
