@@ -135,7 +135,7 @@ class S3Request(object):
         return self.urllib_request_cls(self.method, self.url(bucket.base_url),
                                        data=self.data, headers=self.headers)
 
-    def url(self, base_url, arg_sep=";"):
+    def url(self, base_url, arg_sep="&"):
         url = base_url + "/"
         if self.key:
             url += aws_urlquote(self.key)
