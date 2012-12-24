@@ -61,7 +61,7 @@ class StreamingMixin(object):
             headers["Content-Length"] = str(size)
 
         if progress:
-            fp = ProgressCallingFile(fp, progress)
+            fp = ProgressCallingFile(fp, int(size), progress)
 
         try:
             self.put(key, data=fp, acl=acl, metadata=metadata,
