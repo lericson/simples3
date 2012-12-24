@@ -23,12 +23,9 @@ def test_rfc822():
 class S3BucketTestCase(unittest.TestCase):
     def setUp(self):
         g.bucket.mock_reset()
-        g.streaming_bucket.mock_reset()
 
     def tearDown(self):
         if g.bucket.mock_responses:
-            raise RuntimeError("test run without exhausting mock_responses")
-        if g.streaming_bucket.mock_responses:
             raise RuntimeError("test run without exhausting mock_responses")
 
 class MiscTests(S3BucketTestCase):
@@ -148,32 +145,12 @@ class PutTests(S3BucketTestCase):
         g.bucket[key] = contents
         self._verify_headers(contents, g.bucket.mock_requests[-1].headers)
 
-    def _put_file_contents(self, key, contents):
-        g.streaming_bucket.add_resp("/%s" % key, g.H("application/xml"), "OK!")
-
-        try:
-            fp = StringIO.StringIO()
-            fp.write(contents)
-            g.streaming_bucket.put_file(key, fp, size=len(contents))
-        finally:
-            fp.close()
-
-        self._verify_headers(contents,
-                             g.streaming_bucket.mock_requests[-1].headers)
-
     def test_put(self):
         self._put_contents("foo.txt", "hello")
 
     def test_put_multiple(self):
         self._put_contents("bar.txt", "hi mom, how are you")
         self._put_contents("foo.txt", "hello")
-
-    def test_put_file(self):
-        self._put_file_contents("foo.txt", "hello")
-
-    def test_put_file_multiple(self):
-        self._put_file_contents("bar.txt", "hi mom, how are you")
-        self._put_file_contents("foo.txt", "hello")
 
     def test_put_s3file(self):
         g.bucket.add_resp("/foo.txt", g.H("application/xml"), "OK!")
