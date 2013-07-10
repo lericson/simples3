@@ -115,11 +115,13 @@ class S3Request(object):
 
     @property
     def canonical_resource(self):
-        res = "/%s/" % aws_urlquote(self.bucket)
+        res = "/"
+        if self.bucket:
+            res += aws_urlquote(self.bucket)
         if self.key:
-            res += aws_urlquote(self.key)
+            res += "/%s" % aws_urlquote(self.key)
         if self.subresource:
-            res += "?" + aws_urlquote(self.subresource)
+            res += "?%s" % aws_urlquote(self.subresource)
         return res
 
     def sign(self, cred):
@@ -206,11 +208,13 @@ class S3Bucket(object):
     default_encoding = "utf-8"
     n_retries = 10
 
-    def __init__(self, name, access_key=None, secret_key=None,
+    def __init__(self, name=None, access_key=None, secret_key=None,
                  base_url=None, timeout=None, secure=False):
         scheme = ("http", "https")[int(bool(secure))]
         if not base_url:
-            base_url = "%s://%s/%s" % (scheme, amazon_s3_domain, aws_urlquote(name))
+            base_url = "%s://%s" % (scheme, amazon_s3_domain)
+            if name:
+                base_url += "/%s" % aws_urlquote(name)
         elif secure is not None:
             if not base_url.startswith(scheme + "://"):
                 raise ValueError("secure=%r, url must use %s"
