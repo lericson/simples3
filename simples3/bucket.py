@@ -118,7 +118,7 @@ class S3Request(object):
         res = "/"
         if self.bucket:
             res += aws_urlquote(self.bucket)
-        if self.key:
+        if self.key is not None:
             res += "/%s" % aws_urlquote(self.key)
         if self.subresource:
             res += "?%s" % aws_urlquote(self.subresource)
@@ -371,7 +371,7 @@ class S3Bucket(object):
         self.send(self.request(method="PUT", key=key, headers=headers)).close()
 
     def _get_listing(self, args):
-        return S3Listing.parse(self.send(self.request(args=args)))
+        return S3Listing.parse(self.send(self.request(key='', args=args)))
 
     def listdir(self, prefix=None, marker=None, limit=None, delimiter=None):
         """List bucket contents.
